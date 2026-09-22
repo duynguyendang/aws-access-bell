@@ -1,0 +1,17 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+accessbell.db*
+.env
+docs
+tests
+scripts
+.dockerignore
+Dockerfile
+docker-compose.yml
+README.md
+LICENSE
+policy.yaml

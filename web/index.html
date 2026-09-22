@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#0b0f14"/>
+  <title>AccessBell — Door alerts</title>
+  <link rel="manifest" href="/assets/manifest.json"/>
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml"/>
+  <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand" id="brand">AccessBell</h1>
+    <div class="controls">
+      <span id="status" class="status status-connecting" aria-live="polite"></span>
+      <button id="lang-toggle" class="chip" type="button"></button>
+      <button id="voice-toggle" class="chip" type="button" aria-pressed="false"></button>
+      <button id="child-toggle" class="chip" type="button" aria-pressed="false"></button>
+    </div>
+  </header>
+
+  <p id="sr-live" class="sr-only" aria-live="assertive"></p>
+
+  <main>
+    <section id="alert" class="alert hidden">
+      <div class="alert-head">
+        <span class="clock" id="clock" aria-hidden="true"></span>
+        <span id="latency" class="badge badge-latency"></span>
+      </div>
+      <div id="caption" class="caption"></div>
+      <p id="why" class="why"></p>
+      <div class="meta">
+        <span id="category" class="badge"></span>
+        <span id="urgency" class="badge"></span>
+        <span id="confidence" class="badge"></span>
+        <span id="grounding" class="badge"></span>
+        <span id="context" class="badge"></span>
+      </div>
+      <div id="evidence" class="evidence"></div>
+      <div id="escalation" class="escalation hidden">
+        <span id="escalation-text"></span>
+        <button id="stop-escalation" class="danger" type="button"></button>
+      </div>
+      <div id="replies" class="replies"></div>
+      <p id="note" class="note" aria-live="polite"></p>
+    </section>
+
+    <section class="panel">
+      <h2 id="h-advise"></h2>
+      <ul id="advise" class="list"></ul>
+    </section>
+
+    <section class="panel">
+      <h2 id="h-history"></h2>
+      <ul id="history" class="history"></ul>
+    </section>
+
+    <section class="panel">
+      <h2 id="h-calendar"></h2>
+      <form id="calendar-form" class="grid">
+        <label id="l-window-label" for="w-label"></label>
+        <input id="w-label" required/>
+        <label id="l-window-start" for="w-start"></label>
+        <input id="w-start" placeholder="2026-09-15T15:00:00Z" required/>
+        <label id="l-window-end" for="w-end"></label>
+        <input id="w-end" placeholder="2026-09-15T16:30:00Z" required/>
+        <button id="add-window" class="primary" type="submit"></button>
+      </form>
+      <ul id="windows" class="list"></ul>
+    </section>
+
+    <section class="panel">
+      <h2 id="h-share"></h2>
+      <label id="l-recipient" for="recipient"></label>
+      <input id="recipient" placeholder="nurse@example.com"/>
+      <div class="replies">
+        <button id="preview" type="button"></button>
+        <button id="share" class="primary" type="button" disabled></button>
+      </div>
+      <pre id="share-preview" class="preview"></pre>
+      <label class="check"><input type="checkbox" id="consent"/> <span id="l-consent"></span></label>
+      <ul id="shares" class="list"></ul>
+    </section>
+
+    <section id="demo" class="demo hidden">
+      <h2 id="h-demo"></h2>
+      <div id="demo-buttons" class="replies"></div>
+    </section>
+  </main>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

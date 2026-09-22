@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-09-15T02:14:00Z",
+    "request_id": "5e6f7081-92a3-4e1f-8a3b-4c5d6e7f8006",
+    "account_id": "ava1.ring.account.demo0001"
+  },
+  "data": {
+    "id": "ring_doorbell_01_motion_detected_1789438440000",
+    "type": "motion_detected",
+    "attributes": {
+      "source": "ring_doorbell_01",
+      "source_type": "devices",
+      "timestamp": 1789438440000,
+      "tags": ["night"],
+      "label_hint": "night_motion"
+    },
+    "relationships": {
+      "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}
+    }
+  }
+}

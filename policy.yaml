@@ -1,0 +1,47 @@
+version: 1
+
+product:
+  name: AccessBell
+  tagline: Accessibility, not surveillance.
+  surfaces:
+    - fire_tv_captions
+    - alexa_voice
+    - phone_pwa_replies
+
+privacy:
+  retains_video_archive: false
+  retains_snapshots: false
+  face_recognition: false
+  default_share: opt_in
+  event_ttl_days: 30
+  share_log_enabled: true
+  minimal_data: true
+
+guardrails:
+  do_not_invent_identity: true
+  unknown_over_hallucination: true
+  no_medical_claims: true
+  no_medical_diagnosis: true
+  low_confidence_uses_generic_caption: true
+
+architecture:
+  tier1_rules_first: true
+  tier2_bedrock_enrichment: true
+  mock_mode_supported: true
+
+scope:
+  in_mvp:
+    - door_alerts
+    - evidence_grounded_triage
+    - alexa_mcp_tools
+    - fire_tv_web_ui
+    - quick_replies
+    - daily_brief
+    - consent_driven_share
+  out_of_scope:
+    - face_recognition
+    - continuous_video_monitoring
+    - always_on_surveillance
+    - medical_monitoring
+    - gmail_scanning
+    - outdoor_two_way_stt

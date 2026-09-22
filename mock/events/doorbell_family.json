@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-09-15T18:05:00Z",
+    "request_id": "3c4d5e6f-7081-4c9d-8e1f-2a3b4c5d6e04",
+    "account_id": "ava1.ring.account.demo0001"
+  },
+  "data": {
+    "id": "ring_doorbell_01_button_press_1789495500000",
+    "type": "button_press",
+    "attributes": {
+      "source": "ring_doorbell_01",
+      "source_type": "devices",
+      "timestamp": 1789495500000,
+      "tags": ["family", "visit"],
+      "label_hint": "expected_guest"
+    },
+    "relationships": {
+      "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}
+    }
+  }
+}

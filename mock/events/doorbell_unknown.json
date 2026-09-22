@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-09-15T10:00:00Z",
+    "request_id": "0f3a6f2c-6b1b-4a1e-9d2a-9f0a1b2c3d01",
+    "account_id": "ava1.ring.account.demo0001"
+  },
+  "data": {
+    "id": "ring_doorbell_01_button_press_1789466400000",
+    "type": "button_press",
+    "attributes": {
+      "source": "ring_doorbell_01",
+      "source_type": "devices",
+      "timestamp": 1789466400000,
+      "tags": ["chiropractor", "salesperson"],
+      "label_hint": "visitor"
+    },
+    "relationships": {
+      "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}
+    }
+  }
+}

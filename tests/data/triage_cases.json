@@ -1,0 +1,121 @@
+{
+  "source_of_truth": "README.md §Features (MVP) + docs/ARCHITECTURE.md §4.3 TriageResult",
+  "cases": [
+    {
+      "id": "generic_ding",
+      "summary": "REQ 'rules first / evidence over invention': ding khong signal -> UNKNOWN_VISITOR generic",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T10:00:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [],
+      "expect": {"category": "UNKNOWN_VISITOR", "evidence_prefix": ["doorbell"], "urgency_max": 5, "generic_caption": true}
+    },
+    {
+      "id": "pharmacy_payload_hint",
+      "summary": "REQ taxonomy MED_DELIVERY: payload hint duoc grounding, urgency cao (missed pharmacy risk)",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T09:45:00Z", "raw": {"meta": {"label_hint": "doctor_delivery", "tags": ["pharmacy", "medicine"]}}},
+      "expected_context": [],
+      "expect": {"category": "MED_DELIVERY", "urgency_min": 7, "evidence_prefix": ["doorbell"]}
+    },
+    {
+      "id": "expected_package_window",
+      "summary": "REQ 'expected delivery improves later captions': window match -> evidence expected_context",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T14:30:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [
+        {"kind": "ding", "label": "amazon package delivery", "window_start": "2026-09-15T13:00:00Z", "window_end": "2026-09-15T16:00:00Z"}
+      ],
+      "expect": {"category": "PACKAGE_DELIVERY", "evidence_prefix": ["doorbell", "expected_context"], "urgency_min": 5}
+    },
+    {
+      "id": "expected_pharmacy_morning",
+      "summary": "REQ use-case 'pharmacy ~10am' via voice (MCP add_expected_context)",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T09:55:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [
+        {"kind": "ding", "label": "pharmacy refill delivery", "window_start": "2026-09-15T09:00:00Z", "window_end": "2026-09-15T10:30:00Z"}
+      ],
+      "expect": {"category": "MED_DELIVERY", "evidence_prefix": ["expected_context"], "urgency_min": 7}
+    },
+    {
+      "id": "expected_family_visitor",
+      "summary": "REQ taxonomy FAMILY_VISITOR chi xra khi co expected-context (khong invented)",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T18:05:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [
+        {"kind": "ding", "label": "family visit from sister", "window_start": "2026-09-15T17:00:00Z", "window_end": "2026-09-15T20:00:00Z"}
+      ],
+      "expect": {"category": "FAMILY_VISITOR", "evidence_prefix": ["expected_context"], "urgency_max": 4}
+    },
+    {
+      "id": "window_outside_range",
+      "summary": "Grounding: expected context khong overlap thoi gian -> van generic, khong doan mobile",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T12:00:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [
+        {"kind": "ding", "label": "pharmacy refill delivery", "window_start": "2026-09-15T13:00:00Z", "window_end": "2026-09-15T16:00:00Z"}
+      ],
+      "expect": {"category": "UNKNOWN_VISITOR", "generic_caption": true}
+    },
+    {
+      "id": "salesperson_not_family",
+      "summary": "Bug live-demo: 'visitor' khong duoc substring-match 'visit' -> phai UNKNOWN, khong FAMILY",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T10:00:00Z", "raw": {"meta": {"label_hint": "visitor", "tags": ["chiropractor", "salesperson"]}}},
+      "expected_context": [],
+      "expect": {"category": "UNKNOWN_VISITOR", "generic_caption": true}
+    },
+    {
+      "id": "motion_daytime",
+      "summary": "REQ taxonomy MOTION_ANOMALY: motion ngay, urgency thap (noise/pass-by)",
+      "event": {"kind": "motion", "device_id": "front_door", "occurred_at": "2026-09-15T17:20:00Z", "raw": {"meta": {"tags": ["noise", "passby"]}}},
+      "expected_context": [],
+      "expect": {"category": "MOTION_ANOMALY", "urgency_max": 5, "evidence_prefix": ["motion"]}
+    },
+    {
+      "id": "motion_quiet_hours",
+      "summary": "REQ use-case 'quiet-hours motion' (motion_night fixture): urgency cao hon",
+      "event": {"kind": "motion", "device_id": "front_door", "occurred_at": "2026-09-15T02:14:00Z", "raw": {"meta": {"tags": ["night"]}}},
+      "expected_context": [],
+      "expect": {"category": "MOTION_ANOMALY", "urgency_min": 6}
+    },
+    {
+      "id": "bilingual_captions",
+      "summary": "REQ 'captions EN/VI': moi ket qua phai co ca hai caption non-empty",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T11:00:00Z", "raw": {"meta": {"tags": ["package", "delivery"]}}},
+      "expected_context": [],
+      "expect": {"category": "PACKAGE_DELIVERY", "require_caption_vi": true}
+    },
+    {
+      "id": "partner_button_press_generic",
+      "summary": "REQ Ring Partner API: button_press -> Tier1 doorbell, generic when no signal",
+      "event": {"kind": "button_press", "device_id": "front_door", "occurred_at": "2026-09-15T10:00:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [],
+      "expect": {"category": "UNKNOWN_VISITOR", "generic_caption": true, "evidence_prefix": ["doorbell"]}
+    },
+    {
+      "id": "partner_motion_detected_generic",
+      "summary": "REQ Ring Partner API: motion_detected -> MOTION_ANOMALY",
+      "event": {"kind": "motion_detected", "device_id": "front_door", "occurred_at": "2026-09-15T17:20:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [],
+      "expect": {"category": "MOTION_ANOMALY", "urgency_max": 5, "evidence_prefix": ["motion"]}
+    },
+    {
+      "id": "v11_payload_hint_med",
+      "summary": "REQ Ring Partner API v1.1: hint nam trong data.attributes van grounding duoc MED",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T09:45:00Z", "raw": {"data": {"attributes": {"tags": ["pharmacy", "medicine"], "label_hint": "doctor_delivery"}}}},
+      "expected_context": [],
+      "expect": {"category": "MED_DELIVERY", "urgency_min": 7, "evidence_prefix": ["doorbell"]}
+    },
+    {
+      "id": "calendar_grounded_package",
+      "summary": "REQ Calendar MCP join (J2): calendar event grounds PACKAGE without a payload hint",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T14:30:00Z", "raw": {"meta": {}}},
+      "calendar": [{"title": "Package delivery", "start": "2026-09-15T14:00:00Z", "end": "2026-09-15T16:00:00Z"}],
+      "expected_context": [],
+      "expect": {"category": "PACKAGE_DELIVERY", "evidence_prefix": ["calendar"], "urgency_min": 5}
+    },
+    {
+      "id": "child_home_friend_expected",
+      "summary": "REQ child-at-home: friend visit in expected window -> grounded, low urgency (no parent spam)",
+      "event": {"kind": "ding", "device_id": "front_door", "occurred_at": "2026-09-15T15:30:00Z", "raw": {"meta": {"tags": []}}},
+      "expected_context": [
+        {"kind": "ding", "label": "friend visit after school", "window_start": "2026-09-15T15:00:00Z", "window_end": "2026-09-15T16:30:00Z"}
+      ],
+      "expect": {"category": "FAMILY_VISITOR", "urgency_max": 4, "evidence_prefix": ["expected_context"]}
+    }
+  ]
+}

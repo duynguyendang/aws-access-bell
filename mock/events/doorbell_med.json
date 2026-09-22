@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-09-15T09:45:00Z",
+    "request_id": "2b3c4d5e-6f70-4b8c-9d0e-1f2a3b4c5d03",
+    "account_id": "ava1.ring.account.demo0001"
+  },
+  "data": {
+    "id": "ring_doorbell_01_button_press_1789465500000",
+    "type": "button_press",
+    "attributes": {
+      "source": "ring_doorbell_01",
+      "source_type": "devices",
+      "timestamp": 1789465500000,
+      "tags": ["pharmacy", "medicine", "prescription"],
+      "label_hint": "doctor_delivery"
+    },
+    "relationships": {
+      "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}
+    }
+  }
+}

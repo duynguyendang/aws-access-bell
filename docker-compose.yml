@@ -1,0 +1,40 @@
+services:
+  accessbell:
+    build:
+      context: .
+      args:
+        INSTALL_LLM: "false"
+    ports:
+      - "8080:8080"
+    environment:
+      MOCK_MODE: "true"
+      LLM_PROVIDER: "${LLM_PROVIDER:-stub}"
+      MCP_HTTP_TOKEN: "${MCP_HTTP_TOKEN:-change-me}"
+      DEMO_TOKEN: "${DEMO_TOKEN:-}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
+      CALENDAR_MCP_URL: "${CALENDAR_MCP_URL:-http://calendar-mcp:8085/mcp}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - dbdata:/data
+    depends_on:
+      - calendar-mcp
+    restart: unless-stopped
+
+  calendar-mcp:
+    build:
+      context: .
+      args:
+        INSTALL_LLM: "false"
+    command: ["python", "-m", "mock.calendar_mcp.server"]
+    environment:
+      PORT: "8085"
+    expose:
+      - "8085"
+    restart: unless-stopped
+
+volumes:
+  dbdata:
