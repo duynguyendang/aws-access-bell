@@ -3,6 +3,7 @@
 > **Multi-sensory AI door intelligence for accessibility and independent living.**  
 > Ring · Fire TV · Alexa+ (MCP) · AWS Bedrock
 
+[![ci](https://github.com/duynguyendang/aws-access-bell/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/duynguyendang/aws-access-bell/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Most doorbell apps are built around a phone chime and a small screen.** That works well for many
