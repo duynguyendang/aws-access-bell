@@ -141,7 +141,7 @@ Ring webhook (HMAC)  ──►  AccessBell  ──►  Fire TV / PWA  (Tier 1 ca
 - **Consent escalation** (default OFF): *“if nobody answers, tell Lan”* — durable across restarts  
 - **Mock mode** — full demo without Ring hardware (`MOCK_MODE=true`)  
 - **Bedrock** via LangChain Converse + structured `TriageResult` (AWS Builder mini)  
-- SQLite or Postgres; Docker / Cloud Run scripts; **270 tests** (SQLite; Postgres when DSN set)
+- SQLite or Postgres; Docker / Cloud Run scripts; **271 tests** (SQLite; Postgres when DSN set)
 
 ---
 
@@ -298,7 +298,7 @@ python -m uvicorn backend.main:app --port 8080
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q        # 270 tests: taxonomy, Ring Partner API v1.1 (HMAC, idempotency), grounding gate, door calendar, Calendar MCP, db (sqlite+postgres), MCP tools, API, consent-share, escalation, OAuth 2.1, captions/a11y, LLM factory
+pytest -q        # 271 tests: taxonomy, Ring Partner API v1.1 (HMAC, idempotency), grounding gate, door calendar, Calendar MCP, db (sqlite+postgres), MCP tools, API, consent-share, escalation, OAuth 2.1, captions/a11y, LLM factory
 # Postgres path locally: TEST_POSTGRES_DSN=postgresql://user:pw@host/db pytest -q
 # Container check:      scripts/smoke_docker.sh [image]
 ```

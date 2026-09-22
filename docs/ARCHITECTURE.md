@@ -621,7 +621,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (270 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (271 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 

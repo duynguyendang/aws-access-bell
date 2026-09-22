@@ -1,6 +1,9 @@
 import fnmatch
 import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,6 +47,18 @@ def test_dockerfile_copy_sources_survive_dockerignore():
         elif _ignored(relative, patterns):
             problems.append(f"COPY source {source!r} is excluded by .dockerignore")
     assert problems == []
+
+
+@pytest.mark.skipif(subprocess.run(["git", "--version"], capture_output=True).returncode != 0, reason="git missing")
+def test_shell_scripts_are_committed_executable():
+    listed = subprocess.run(["git", "ls-files", "-s", "scripts"], capture_output=True, text=True, cwd=ROOT, check=True)
+    modes = {}
+    for line in listed.stdout.splitlines():
+        meta, path = line.split("\t", 1)
+        modes[path.strip()] = meta.split()[0]
+    shell_files = {path: mode for path, mode in modes.items() if path.endswith(".sh")}
+    assert shell_files, "expected shell scripts under scripts/"
+    assert {p: m for p, m in shell_files.items() if m != "100755"} == {}
 
 
 def test_requirements_files_are_copied_before_install():

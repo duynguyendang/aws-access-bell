@@ -57,4 +57,4 @@ jobs:
       - name: Build image
         run: docker build -t accessbell:ci .
       - name: Smoke test container
-        run: scripts/smoke_docker.sh accessbell:ci
+        run: bash scripts/smoke_docker.sh accessbell:ci
