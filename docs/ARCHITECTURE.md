@@ -621,7 +621,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (268 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (270 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 
@@ -634,6 +634,7 @@ variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on S
 | `tests/test_util.py` | Rate-limiter key pruning; quiet-hours window wrap |
 | `tests/test_adversarial.py` | Forged/missing signature rejected, inventing LLM demoted, LLM failure → Tier 1, single-use escalation claim |
 | `tests/test_scripts.py` | Ablation arms show grounding contribution; docs-consistency checks pass |
+| `tests/test_docker_context.py` | Every `COPY` source in the Dockerfile exists and is not excluded by `.dockerignore` |
 | `tests/test_triage_data.py` | Data-driven: taxonomy (5 categories), expected-context windows, quiet-hours motion, child-at-home friend visit, v1.1 `data.attributes` hint, EN/VI captions, generic fallback |
 | `tests/test_webhook.py` | HMAC verify (valid/tampered/dev-mode/`sha256=` prefix), Partner API v1.1 parse, `request_id` idempotency beyond debounce, mock fixtures are v1.1, ingest, debounce window, invalid JSON |
 | `tests/test_db.py` | Expected-window matching, TTL purge, debounce query, labels, prefs, triage persistence |

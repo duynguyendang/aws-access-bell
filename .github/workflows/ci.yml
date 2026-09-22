@@ -17,7 +17,7 @@ jobs:
       - name: Lint
         run: ruff check backend scripts tests
       - name: Pytest (sqlite)
-        run: pytest -q
+        run: python -m pytest -q
       - name: Docs consistency
         run: python scripts/check_docs_consistency.py
       - name: Evidence ablation
@@ -48,7 +48,7 @@ jobs:
       - name: Install
         run: pip install -r requirements-dev.txt
       - name: Pytest (sqlite + postgres)
-        run: pytest -q
+        run: python -m pytest -q
 
   docker:
     runs-on: ubuntu-latest
