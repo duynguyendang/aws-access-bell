@@ -22,7 +22,11 @@ class PostgresDialect:
         return sql + " RETURNING id"
 
     def executescript(self, conn, script: str):
-        for statement in script.split(";"):
+        # Drop leading "--" comment lines before splitting so every statement
+        # chunk handed to psycopg is executable on its own.
+        lines = [line for line in script.splitlines() if not line.strip().startswith("--")]
+        cleaned = "\n".join(lines)
+        for statement in cleaned.split(";"):
             if statement.strip():
                 conn.execute(statement)
         conn.commit()

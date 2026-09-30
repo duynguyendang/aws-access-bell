@@ -240,15 +240,20 @@ class Database:
     def purge_older_than(self, ttl_days: int) -> int:
         with self._write() as conn:
             if self._dialect.name == "postgres":
-                cur = conn.execute(
-                    "DELETE FROM events WHERE created_at < now() - (%s)::interval",
-                    (f"{int(ttl_days)} days",),
-                )
+                age = "created_at < now() - (%s)::interval"
+                stale = (f"{int(ttl_days)} days",)
             else:
-                cur = conn.execute(
-                    "DELETE FROM events WHERE created_at < datetime('now', ?)",
-                    (f"-{int(ttl_days)} days",),
-                )
+                age = "created_at < datetime('now', ?)"
+                stale = (f"-{int(ttl_days)} days",)
+            # Explicit cleanup so retention never leaves dependent rows behind, even
+            # on schemas that predate the ON DELETE CASCADE foreign keys. escalation_log
+            # keeps its audit trail; labels/escalation_pending must not outlive events.
+            conn.execute(f"DELETE FROM labels WHERE event_id IN (SELECT id FROM events WHERE {age})", stale)
+            conn.execute(
+                f"DELETE FROM escalation_pending WHERE event_id IN (SELECT id FROM events WHERE {age})",
+                stale,
+            )
+            cur = conn.execute(f"DELETE FROM events WHERE {age}", stale)
             self._conn.commit()
             return cur.rowcount
 

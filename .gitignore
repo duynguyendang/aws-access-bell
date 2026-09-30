@@ -1,9 +1,1 @@
-.venv/
-__pycache__/
-*.pyc
-.env
-accessbell.db
-accessbell.db-wal
-accessbell.db-shm
-.pytest_cache/
-docs/internal/
+(empty)
