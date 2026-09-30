@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS labels (
     label TEXT NOT NULL,
     confirmed_at TEXT NOT NULL DEFAULT (datetime('now')),
     source TEXT NOT NULL DEFAULT 'alexa',
-    FOREIGN KEY(event_id) REFERENCES events(id)
+    FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_labels_pattern ON labels(pattern_key);
@@ -86,8 +86,24 @@ CREATE TABLE IF NOT EXISTS escalation_log (
 );
 
 CREATE TABLE IF NOT EXISTS escalation_pending (
-    event_id INTEGER PRIMARY KEY,
+    event_id INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
     fire_at TEXT NOT NULL,
     timeout_seconds INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Self-heal pre-CASCADE schemas: recreate escalation_pending with the FK in place.
+-- The legacy table is renamed out of the way (no row copy), matching rows are
+-- inserted into the fresh table, then the legacy table is dropped.
+CREATE TABLE IF NOT EXISTS escalation_pending_fix (
+    event_id INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
+    fire_at TEXT NOT NULL,
+    timeout_seconds INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+ALTER TABLE escalation_pending RENAME TO escalation_pending_legacy;
+INSERT OR IGNORE INTO escalation_pending_fix (event_id, fire_at, timeout_seconds, created_at)
+    SELECT ep.event_id, ep.fire_at, ep.timeout_seconds, ep.created_at
+    FROM escalation_pending_legacy ep JOIN events e ON e.id = ep.event_id;
+DROP TABLE escalation_pending_legacy;
+ALTER TABLE escalation_pending_fix RENAME TO escalation_pending;

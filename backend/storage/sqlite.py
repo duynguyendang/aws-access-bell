@@ -21,7 +21,20 @@ class SqliteDialect:
         return sql
 
     def executescript(self, conn, script: str):
-        conn.executescript(script)
+        # Strip "--" comment lines first (a statement chunk may *start* with a
+        # comment), then run each statement with autocommit so that explicit
+        # BEGIN/COMMIT pairs inside the script never nest.
+        lines = [line for line in script.splitlines() if not line.strip().startswith("--")]
+        cleaned = "\n".join(lines)
+        previous_isolation = conn.isolation_level
+        conn.isolation_level = None
+        try:
+            for statement in cleaned.split(";"):
+                if statement.strip():
+                    conn.execute(statement)
+        finally:
+            conn.isolation_level = previous_isolation
+        conn.commit()
 
     def last_id(self, cursor):
         return cursor.lastrowid
