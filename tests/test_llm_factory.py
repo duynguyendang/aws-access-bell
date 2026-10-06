@@ -19,11 +19,13 @@ def test_build_stub():
 
 
 def test_build_langchain_ollama():
+    pytest.importorskip("langchain_ollama")
     llm = build_llm(_settings("ollama"))
     assert llm.name == "langchain"
 
 
 def test_ollama_model_is_structured_output():
+    pytest.importorskip("langchain_ollama")
     model = build_chat_model(_settings("ollama"), "llama3.2")
     llm = LangChainLLM(model)
     assert llm.name == "langchain"

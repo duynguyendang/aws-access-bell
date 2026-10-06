@@ -273,6 +273,8 @@ async def _announce(event: dict, started: float | None = None):
             "type": "alert_raw",
             "event_id": event["id"],
             "text": raw.caption_en,
+            "text_en": raw.caption_en,
+            "text_vi": raw.caption_vi,
             "category": raw.category.value,
             "latency_ms": latency_ms,
         }

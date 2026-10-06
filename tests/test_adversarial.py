@@ -61,7 +61,14 @@ def test_llm_failure_falls_back_to_tier1(db):
 def test_pending_escalation_claim_is_single_use(tmp_path):
     database = Database(f"sqlite:///{tmp_path / 'claim.db'}")
     database.init_schema()
-    database.upsert_pending_escalation(1, "2026-09-15T10:00:00Z", 90)
-    assert database.claim_pending_escalation(1) is True
-    assert database.claim_pending_escalation(1) is False
+    event_id = database.insert_event(
+        source="ring",
+        device_id="d1",
+        kind="ding",
+        occurred_at="2026-09-15T10:00:00Z",
+        raw={},
+    )
+    database.upsert_pending_escalation(event_id, "2026-09-15T10:00:00Z", 90)
+    assert database.claim_pending_escalation(event_id) is True
+    assert database.claim_pending_escalation(event_id) is False
     database.close()

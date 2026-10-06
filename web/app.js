@@ -23,6 +23,7 @@ const state = {
   mode: "both",
   voice: false,
   child: false,
+  bilingual: false,
   strings: {},
   currentEventId: null,
   last: null,
@@ -81,6 +82,7 @@ async function loadMeta() {
   state.mode = prefs.mode || "both";
   state.child = localStorage.getItem("accessbell_child") === "1";
   state.voice = localStorage.getItem("accessbell_voice") === "1";
+  state.bilingual = localStorage.getItem("accessbell_bilingual") === "1";
   await loadStrings();
   applyStatic();
 }
@@ -114,6 +116,11 @@ function applyStatic() {
   setText("share", "share_now");
   setText("stop-escalation", "stop_escalation");
   $("lang-toggle").textContent = state.lang === "vi" ? "VI" : "EN";
+  const bToggle = $("bilingual-toggle");
+  if (bToggle) {
+    bToggle.textContent = state.bilingual ? s("bilingual_mode_on") : s("bilingual_mode_off");
+    bToggle.setAttribute("aria-pressed", String(state.bilingual));
+  }
   $("voice-toggle").textContent = state.voice ? s("voice_on") : s("voice_off");
   $("voice-toggle").setAttribute("aria-pressed", String(state.voice));
   $("child-toggle").textContent = state.child ? s("child_mode_on") : s("child_mode_off");
@@ -145,11 +152,22 @@ function currentCaption(triage) {
   return triage[suffix] || triage.caption_en || "";
 }
 
+function secondaryCaption(triage) {
+  if (state.child) return "";
+  const suffix = state.lang === "vi" ? "caption_en" : "caption_vi";
+  return triage[suffix] || "";
+}
+
 function renderAlert(eventId, triage, why, childCaption) {
   state.currentEventId = eventId ?? state.currentEventId;
   state.last = { eventId: state.currentEventId, triage, why, childCaption };
   const caption = currentCaption(triage);
+  const secondary = secondaryCaption(triage);
   $("caption").textContent = caption;
+  const subEl = $("caption-sub");
+  if (subEl) {
+    subEl.textContent = state.bilingual ? secondary : "";
+  }
   $("why").textContent = why ? `${s("why")}: ${why[state.lang] || why.en || ""}` : "";
   $("category").textContent = triage.category || "";
   $("urgency").textContent = triage.urgency != null ? fill("urgency", { value: triage.urgency }) : "";
@@ -165,7 +183,13 @@ function renderAlert(eventId, triage, why, childCaption) {
 
 function renderRaw(msg) {
   $("clock").textContent = new Date().toLocaleTimeString();
-  $("caption").textContent = msg.text || "";
+  const primary = (state.lang === "vi" ? msg.text_vi : msg.text_en) || msg.text || "";
+  const secondary = (state.lang === "vi" ? msg.text_en : msg.text_vi) || "";
+  $("caption").textContent = primary;
+  const subEl = $("caption-sub");
+  if (subEl) {
+    subEl.textContent = state.bilingual ? secondary : "";
+  }
   $("category").textContent = msg.category || "";
   $("urgency").textContent = "";
   $("confidence").textContent = "";
@@ -174,7 +198,7 @@ function renderRaw(msg) {
   $("latency").textContent = msg.latency_ms != null ? fill("latency", { ms: msg.latency_ms }) : "";
   renderEvidence([]);
   $("alert").className = "alert u-amber";
-  upsertHistory(msg.event_id, { caption: msg.text || "", tag: msg.category || "", urgency: 4 });
+  upsertHistory(msg.event_id, { caption: primary, tag: msg.category || "", urgency: 4 });
 }
 
 function renderEvidence(evidence) {
@@ -398,17 +422,70 @@ async function loadShares() {
   });
 }
 
+const FIXTURE_LABELS = {
+  doorbell_med: { en: "Medicine Delivery", vi: "Giao thuốc" },
+  doorbell_package_window: { en: "Package Delivery", vi: "Giao hàng" },
+  doorbell_family: { en: "Family Visitor", vi: "Người thân" },
+  doorbell_unknown: { en: "Unknown Visitor", vi: "Khách lạ" },
+  motion_only: { en: "Motion", vi: "Chuyển động" },
+  motion_night: { en: "Night Motion", vi: "Chuyển động đêm" },
+};
+
 function buildDemoBar() {
   const section = $("demo");
   section.classList.toggle("hidden", !state.mockMode);
   if (!state.mockMode) return;
   const container = $("demo-buttons");
   container.innerHTML = "";
+
+  const btnEn = document.createElement("button");
+  btnEn.type = "button";
+  btnEn.className = "reply primary";
+  btnEn.textContent = "Demo EN (Medicine)";
+  btnEn.addEventListener("click", async () => {
+    if (state.lang !== "en") {
+      state.lang = "en";
+      try {
+        await fetch("/api/prefs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: state.mode, language: "en" }),
+        });
+      } catch (_) {}
+      await loadStrings();
+      applyStatic();
+    }
+    await fetch("/api/simulate?fixture=doorbell_med", { method: "POST" });
+  });
+  container.appendChild(btnEn);
+
+  const btnVi = document.createElement("button");
+  btnVi.type = "button";
+  btnVi.className = "reply primary";
+  btnVi.textContent = "Demo VI (Giao thuốc)";
+  btnVi.addEventListener("click", async () => {
+    if (state.lang !== "vi") {
+      state.lang = "vi";
+      try {
+        await fetch("/api/prefs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: state.mode, language: "vi" }),
+        });
+      } catch (_) {}
+      await loadStrings();
+      applyStatic();
+    }
+    await fetch("/api/simulate?fixture=doorbell_med", { method: "POST" });
+  });
+  container.appendChild(btnVi);
+
   FIXTURES.forEach((fixture) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "reply";
-    button.textContent = fixture;
+    const label = FIXTURE_LABELS[fixture];
+    button.textContent = label ? `${label[state.lang]} (${fixture})` : fixture;
     button.addEventListener("click", async () => {
       const response = await fetch(`/api/simulate?fixture=${encodeURIComponent(fixture)}`, { method: "POST" });
       if (!response.ok) $("note").textContent = `${s("reply_failed")}: ${response.status}`;
@@ -419,6 +496,17 @@ function buildDemoBar() {
 
 function wireControls() {
   $("stop-escalation").addEventListener("click", stopEscalation);
+  const bToggle = $("bilingual-toggle");
+  if (bToggle) {
+    bToggle.addEventListener("click", () => {
+      state.bilingual = !state.bilingual;
+      localStorage.setItem("accessbell_bilingual", state.bilingual ? "1" : "0");
+      applyStatic();
+      if (state.last) {
+        renderAlert(state.last.eventId, state.last.triage, state.last.why, state.last.childCaption);
+      }
+    });
+  }
   $("voice-toggle").addEventListener("click", () => {
     state.voice = !state.voice;
     localStorage.setItem("accessbell_voice", state.voice ? "1" : "0");
@@ -432,12 +520,20 @@ function wireControls() {
   });
   $("lang-toggle").addEventListener("click", async () => {
     const next = state.lang === "vi" ? "en" : "vi";
-    await fetch("/api/prefs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: state.mode, language: next }),
-    });
-    window.location.reload();
+    state.lang = next;
+    try {
+      await fetch("/api/prefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: state.mode, language: next }),
+      });
+    } catch (_) {}
+    await loadStrings();
+    applyStatic();
+    if (state.last) {
+      renderAlert(state.last.eventId, state.last.triage, state.last.why, state.last.childCaption);
+    }
+    await Promise.all([loadHistory(), loadAdvise(), loadWindows(), loadShares()]);
   });
   $("calendar-form").addEventListener("submit", async (event) => {
     event.preventDefault();

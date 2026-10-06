@@ -1,1 +1,41 @@
-(empty)
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables & secrets
+.env
+.env.local
+
+# Internal strategy & planning notes (per AGENTS.md)
+docs/internal/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
