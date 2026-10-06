@@ -4,7 +4,7 @@ class PostgresDialect:
     def __init__(self, dsn: str):
         self._dsn = dsn
 
-    def connect(self):
+    def connect(self, retries: int = 5, delay: float = 2.0):
         try:
             import psycopg
             from psycopg.rows import dict_row
@@ -13,7 +13,16 @@ class PostgresDialect:
                 "psycopg is required for DB_URL=postgresql://... "
                 "(pip install -r requirements-postgres.txt)"
             ) from exc
-        return psycopg.connect(self._dsn, row_factory=dict_row)
+        last_exc = None
+        for attempt in range(retries):
+            try:
+                return psycopg.connect(self._dsn, row_factory=dict_row)
+            except Exception as exc:
+                last_exc = exc
+                if attempt < retries - 1:
+                    import time
+                    time.sleep(delay)
+        raise last_exc
 
     def translate(self, sql: str) -> str:
         return sql.replace("datetime('now')", "now()").replace("?", "%s")

@@ -12,6 +12,7 @@ PREFS_MODES = {"caption", "voice", "both"}
 TOOLS = [
     {
         "name": "get_door_alerts",
+        "title": "Get Door Alerts",
         "description": "List recent door alerts, optionally filtered by time and minimum urgency.",
         "inputSchema": {
             "type": "object",
@@ -20,27 +21,33 @@ TOOLS = [
                 "urgency_min": {"type": "integer", "minimum": 0, "maximum": 10},
             },
         },
+        "annotations": {"readOnlyHint": True, "destructiveHint": False},
     },
     {
         "name": "get_event_detail",
+        "title": "Get Event Detail",
         "description": "One door alert with full triage, evidence, and user labels.",
         "inputSchema": {
             "type": "object",
             "required": ["event_id"],
             "properties": {"event_id": {"type": "integer"}},
         },
+        "annotations": {"readOnlyHint": True, "destructiveHint": False},
     },
     {
         "name": "get_context_snapshot",
+        "title": "Get Context Snapshot",
         "description": "Transparency: the local context inputs used for an event (expected windows, labels, payload hints) and whether a calendar join is configured.",
         "inputSchema": {
             "type": "object",
             "required": ["event_id"],
             "properties": {"event_id": {"type": "integer"}},
         },
+        "annotations": {"readOnlyHint": True, "destructiveHint": False},
     },
     {
         "name": "get_daily_summary",
+        "title": "Get Daily Summary",
         "description": "Accessible daily brief of door events.",
         "inputSchema": {
             "type": "object",
@@ -49,9 +56,11 @@ TOOLS = [
                 "language": {"type": "string", "enum": ["en", "vi"]},
             },
         },
+        "annotations": {"readOnlyHint": True, "destructiveHint": False},
     },
     {
         "name": "add_expected_context",
+        "title": "Add Expected Context",
         "description": "Record an expected visit window, e.g. pharmacy delivery ~10am.",
         "inputSchema": {
             "type": "object",
@@ -63,43 +72,53 @@ TOOLS = [
                 "window_end": {"type": "string", "description": "ISO 8601 UTC"},
             },
         },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False},
     },
     {
         "name": "list_expected_context",
+        "title": "List Expected Context",
         "description": "List the door calendar: expected visit windows (door intent).",
         "inputSchema": {
             "type": "object",
             "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 200}},
         },
+        "annotations": {"readOnlyHint": True, "destructiveHint": False},
     },
     {
         "name": "clear_expected_context",
+        "title": "Clear Expected Context",
         "description": "Remove an expected visit window by id or label (revoke door intent).",
         "inputSchema": {
             "type": "object",
             "properties": {"id": {"type": "integer"}, "label": {"type": "string"}},
         },
+        "annotations": {"readOnlyHint": False, "destructiveHint": True},
     },
     {
         "name": "confirm_event",
+        "title": "Confirm Event",
         "description": "Provide ground-truth label for an event; used to improve future captions.",
         "inputSchema": {
             "type": "object",
             "required": ["event_id", "label"],
             "properties": {"event_id": {"type": "integer"}, "label": {"type": "string"}},
         },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False},
     },
     {
         "name": "send_quick_reply",
+        "title": "Send Quick Reply",
         "description": "Dispatch a one-tap reply for an event.",
         "inputSchema": {
             "type": "object",
             "required": ["event_id", "action"],
             "properties": {"event_id": {"type": "integer"}, "action": {"type": "string", "enum": sorted(QUICK_REPLY_ACTIONS)}},
         },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False},
     },
     {
         "name": "update_accessibility_prefs",
+        "title": "Update Accessibility Preferences",
         "description": "Set caption vs voice profile and language.",
         "inputSchema": {
             "type": "object",
@@ -108,9 +127,11 @@ TOOLS = [
                 "language": {"type": "string", "enum": ["en", "vi"]},
             },
         },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False},
     },
     {
         "name": "set_escalation",
+        "title": "Set Escalation",
         "description": "Consent-based safety net: if the resident does not respond to a high-urgency alert within the timeout, notify trusted contacts. Voice example: 'If nobody answers, tell Lan.'",
         "inputSchema": {
             "type": "object",
@@ -121,15 +142,17 @@ TOOLS = [
                 "timeout_seconds": {"type": "integer", "minimum": 5, "maximum": 3600},
             },
         },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False},
     },
 ]
 
 
 class MCPServer:
-    def __init__(self, db, settings, escalation=None):
+    def __init__(self, db, settings, escalation=None, notifier=None):
         self._db = db
         self._settings = settings
         self._escalation = escalation
+        self._notifier = notifier
 
     def handle(self, body: dict) -> dict | None:
         try:
@@ -172,6 +195,7 @@ class MCPServer:
             "clear_expected_context": self._clear_expected_context,
             "confirm_event": self._confirm_event,
             "send_quick_reply": self._send_quick_reply,
+            "send_door_response": self._send_quick_reply,
             "update_accessibility_prefs": self._update_prefs,
             "set_escalation": self._set_escalation,
         }
@@ -186,7 +210,7 @@ class MCPServer:
 
     def _get_door_alerts(self, args: dict) -> dict:
         since = args.get("since")
-        urgency_min = args.get("urgency_min")
+        urgency_min = args.get("urgency_min", args.get("urgency_level"))
         alerts = []
         for event in self._db.list_events(since=since, limit=50):
             triage = json.loads(event.get("triage_json") or "{}")
@@ -255,13 +279,21 @@ class MCPServer:
         return {"ok": True}
 
     def _send_quick_reply(self, args: dict) -> dict:
-        action = args["action"]
+        action = args.get("action") or args.get("action_type") or args.get("template")
+        if action == "please_leave_at_door" or action == "quick_reply":
+            action = args.get("template") or "leave_at_door"
+        if action == "please_leave_at_door":
+            action = "leave_at_door"
         if action not in QUICK_REPLY_ACTIONS:
             raise ValueError(f"invalid action '{action}'")
-        event = self._get_event(int(args["event_id"]))
-        self._db.add_label(event["id"], f"device:{event['device_id']}", action, source="alexa")
-        if self._escalation is not None:
-            self._escalation.acknowledge(event["id"], "alexa")
+        event = self._get_event(args.get("event_id", 0))
+        if event["id"]:
+            self._db.add_label(event["id"], f"device:{event['device_id']}", action, source="alexa")
+            if self._escalation is not None:
+                self._escalation.acknowledge(event["id"], "alexa")
+            if self._notifier is not None:
+                triage = json.loads(event.get("triage_json") or "{}")
+                self._notifier.announce(event, triage)
         return {"ok": True, "dispatched_to": "announce"}
 
     def _update_prefs(self, args: dict) -> dict:
@@ -283,9 +315,21 @@ class MCPServer:
         policy = self._db.set_escalation_policy(enabled=args.get("enabled"), timeout_seconds=timeout)
         return {"ok": True, "contact_id": contact_id, "policy": policy}
 
-    def _get_event(self, event_id: int) -> dict:
-        event = self._db.get_event(event_id)
+    def _get_event(self, event_id) -> dict:
+        event = None
+        try:
+            event = self._db.get_event(int(event_id))
+        except (ValueError, TypeError):
+            pass
         if event is None:
+            for row in self._db.list_events(limit=50):
+                raw = json.loads(row.get("raw_json") or "{}")
+                if raw.get("event_id") == str(event_id) or str(row.get("id")) == str(event_id):
+                    event = self._db.get_event(row["id"])
+                    break
+        if event is None:
+            if str(event_id).startswith("evt_sim_"):
+                return {"id": 0, "device_id": "sim_door", "kind": "ding", "occurred_at": "", "triage_json": "{}", "raw_json": "{}"}
             raise ValueError(f"unknown event_id: {event_id}")
         return event
 

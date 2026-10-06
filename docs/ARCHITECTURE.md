@@ -128,7 +128,7 @@ Ring ding
   → POST /webhooks/ring  (verify HMAC)
   → insert Event(status=ingested)
   → Tier1: raw category from event type
-  → SSE: { type: "alert_raw", text: "Someone is at the door" }
+  → SSE: { type: "alert_raw", text, text_en, text_vi, category, latency_ms }
   → async Tier2:
         load expected_context + today's stats
         call Bedrock (structured output)
@@ -621,7 +621,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (271 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (292 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 
@@ -638,10 +638,11 @@ variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on S
 | `tests/test_triage_data.py` | Data-driven: taxonomy (5 categories), expected-context windows, quiet-hours motion, child-at-home friend visit, v1.1 `data.attributes` hint, EN/VI captions, generic fallback |
 | `tests/test_webhook.py` | HMAC verify (valid/tampered/dev-mode/`sha256=` prefix), Partner API v1.1 parse, `request_id` idempotency beyond debounce, mock fixtures are v1.1, ingest, debounce window, invalid JSON |
 | `tests/test_db.py` | Expected-window matching, TTL purge, debounce query, labels, prefs, triage persistence |
-| `tests/test_mcp_server.py` | All **8** AccessBell MCP tools, JSON-RPC initialize/-32601/-32602, notifications, evidence in detail |
+| `tests/test_mcp_server.py` | All **11** AccessBell MCP tools, JSON-RPC initialize/-32601/-32602, notifications, evidence in detail |
 | `tests/test_api.py` | Full HTTP surface: simulate, webhook+signature (v1.1 envelope, `X-Ring-Signature` alias), quick reply, confirm, brief EN/VI, consent-share+audit, prefs validation, MCP bearer/origin, `MCP_401_WWW_AUTHENTICATE` toggle, SSE broker format |
 | `tests/test_escalation.py` | Safety net: policy off by default, fires after timeout w/ audit, reply stops it (REST+MCP), low-urgency skip, revoked contacts never notified, **pending survives restart**, **at-most-once claim** |
-| `tests/test_oauth.py` | OAuth 2.1: service/user tiers, JWKS/issuer/aud/exp/resource checks, `WWW-Authenticate` discovery on 401, **Cf-Access-Jwt-Assertion**, local-token fallback |
+| `tests/test_oauth.py` | OAuth 2.1: service/user tiers, JWKS/issuer/aud/exp/resource checks, `WWW-Authenticate` discovery on 401, **Cf-Access-Jwt-Assertion**, Cognito client IDs and scopes, local-token fallback |
+| `tests/test_notifier.py` | AWS SNS and SES transports with fallback for demo mode |
 | `tests/test_captions.py` | Accessibility guardrails: EN+VI present, TTS-safe, length-bounded, Partner API kinds mapped, VI door-word regression, brief templates in both languages |
 | `tests/test_storage_dialects.py` | SQL translation per dialect (`?`→`%s`, `now()`, `RETURNING id`, DROP … CASCADE) |
 | `tests/test_llm_factory.py` | Provider factory (stub/ollama), unknown provider, missing API key (skipped if no langchain) |

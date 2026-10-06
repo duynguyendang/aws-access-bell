@@ -29,6 +29,8 @@ htmlcov/
 # Environment variables & secrets
 .env
 .env.local
+*.env
+aws.env
 
 # Internal strategy & planning notes (per AGENTS.md)
 docs/internal/
@@ -39,3 +41,8 @@ docs/internal/
 .idea/
 *.swp
 *~
+
+# AWS CDK synth output
+cdk.out/
+infra/cdk.out/
+.cdk.staging/

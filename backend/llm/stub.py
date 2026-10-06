@@ -15,10 +15,12 @@ class StubLLM:
         tags, hint = extract_payload_hints(raw)
         tags = [tag.lower() for tag in tags]
         hint = hint.lower()
-        text = " ".join(tags + [hint])
+        text = " ".join(tags + [hint]).replace("_", " ")
+        has_snapshot = bool(raw.get("snapshot_url") or raw.get("snapshot_key"))
+        snap_ev = ["snapshot:detected"] if has_snapshot else ["time_pattern"]
 
         for item in calendar or []:
-            label = str(item.get("title") or item.get("label") or "").lower()
+            label = str(item.get("title") or item.get("label") or "").lower().replace("_", " ")
             if _hit(label, ("pharmacy", "medicine", "med", "doctor", "drug")):
                 return self._result("MED_DELIVERY", 8, 0.8, ["doorbell", "calendar:med"])
             if _hit(label, ("package", "delivery", "ship", "amazon")):
@@ -27,7 +29,7 @@ class StubLLM:
                 return self._result("FAMILY_VISITOR", 3, 0.78, ["doorbell", "calendar:family"])
 
         for window in expected:
-            label = str(window.get("label") or "").lower()
+            label = str(window.get("label") or "").lower().replace("_", " ")
             if _hit(label, ("pharmacy", "medicine", "med", "doctor", "drug")):
                 return self._result("MED_DELIVERY", 8, 0.85, ["doorbell", "expected_context:pharmacy"])
             if _hit(label, ("package", "delivery", "ship", "amazon")):
@@ -36,11 +38,11 @@ class StubLLM:
                 return self._result("FAMILY_VISITOR", 3, 0.8, ["doorbell", "expected_context:family"])
 
         if _hit(text, ("pharmacy", "medicine", "med", "doctor", "drug")):
-            return self._result("MED_DELIVERY", 8, 0.78, ["doorbell", "time_pattern"])
+            return self._result("MED_DELIVERY", 8, 0.78, ["doorbell"] + snap_ev)
         if _hit(text, ("package", "delivery", "ship", "courier")):
-            return self._result("PACKAGE_DELIVERY", 6, 0.72, ["doorbell", "time_pattern"])
+            return self._result("PACKAGE_DELIVERY", 6, 0.72, ["doorbell"] + snap_ev)
         if _hit(text, ("family", "guest", "visit", "relative")):
-            return self._result("FAMILY_VISITOR", 3, 0.72, ["doorbell", "time_pattern"])
+            return self._result("FAMILY_VISITOR", 3, 0.72, ["doorbell"] + snap_ev)
 
         if "motion" in str(kind).lower():
             urgency = 6 if "night" in tags else 5

@@ -1,0 +1,10 @@
+{
+  "event_type": "doorbell_ding",
+  "device_id": "front_door_sim_001",
+  "snapshot_key": "med_delivery.jpg",
+  "expected_label": "MED_DELIVERY",
+  "metadata": {
+    "label_hint": "pharmacy",
+    "tags": ["pharmacy", "medicine"]
+  }
+}

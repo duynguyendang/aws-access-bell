@@ -68,8 +68,8 @@ Retention: `EVENT_TTL_DAYS` (default 30) purged at startup; no video is stored.
 |---|---|---|---|
 | **Local (demo)** | `python -m backend` (honors `PORT`) | SQLite file | nothing else needed |
 | **Docker** | `docker compose up --build` | `dbdata` volume | needs a Docker daemon |
+| **AWS (ECS Fargate + ALB)** | `scripts/deploy_aws.sh [region]` (CDK) | RDS Postgres | Turnkey Fargate, ALB (idle timeout 300s for SSE), Cognito OAuth 2.1, Bedrock IAM |
 | **GCP Cloud Run** | `scripts/deploy_cloudrun.sh <project> [region]` | SQLite is ephemeral → use Postgres | scale-to-zero (`min-instances 0`) is safe; REST gated by `API_TOKEN` |
-| **AWS (ECS/EC2)** | same container | RDS Postgres | Bedrock needs IAM credentials |
 | **Cloudflare** | Containers (or TLS/Zero Trust in front) | external Postgres | Python does **not** run on Workers |
 | **VM / k8s** | container + `DB_URL` | Postgres | `/health` healthcheck |
 
@@ -95,15 +95,16 @@ Required for MCP over the public internet: **HTTPS + OAuth 2.1**. During develop
 
 | Group | Variables |
 |---|---|
-| Runtime | `PORT`, `WEB_DIR`, `LOG_LEVEL`, `MOCK_MODE` |
+| Runtime | `APP_ENV`, `PORT`, `WEB_DIR`, `LOG_LEVEL`, `MOCK_MODE`, `FORWARDED_ALLOW_IPS` |
 | Storage | `DB_URL` (or `DB_PATH`) |
 | LLM | `LLM_PROVIDER`, `LLM_MODEL`, `*_API_KEY`, `BEDROCK_MODEL_ID`, `AWS_REGION`, `LLM_TIMEOUT_SECONDS` |
 | API auth (REST/SSE) | `API_AUTH_DISABLED`, `API_TOKEN` |
-| MCP / auth | `MCP_HTTP_TOKEN`, `MCP_ORIGIN`, `OAUTH_ISSUER`, `OAUTH_JWKS_URL`, `OAUTH_AUDIENCE`, `MCP_RESOURCE`, `OAUTH_REQUIRE_RESOURCE`, `CF_ACCESS_JWT_ENABLED`, `MCP_401_WWW_AUTHENTICATE` |
+| MCP / auth | `MCP_HTTP_TOKEN`, `MCP_ORIGIN`, `OAUTH_ISSUER`, `OAUTH_JWKS_URL`, `OAUTH_AUDIENCE`, `OAUTH_CLIENT_IDS`, `OAUTH_SCOPE_PREFIX`, `MCP_RESOURCE`, `OAUTH_REQUIRE_RESOURCE`, `CF_ACCESS_JWT_ENABLED`, `MCP_401_WWW_AUTHENTICATE` |
+| Outbound notifications | `NOTIFIER_PROVIDER`, `SNS_TOPIC_ARN`, `SES_SENDER_EMAIL`, `ANNOUNCE_ENABLED` |
 | Ring | `RING_WEBHOOK_ENABLED`, `RING_WEBHOOK_SECRET`, `RING_SIGNATURE_HEADER`, `RING_API_BASE_URL`, `RING_ACCOUNT_TOKEN` |
 | Calendar MCP (J2, optional) | `CALENDAR_MCP_URL`, `CALENDAR_MCP_TOKEN` |
 | Latency budgets | `CONTEXT_BUDGET_MS`, `ENRICH_BUDGET_MS`, `QUIET_HOURS_START`, `QUIET_HOURS_END` |
-| Ops | `DEMO_TOKEN`, `RATE_LIMIT_PER_MINUTE`, `DEBOUNCE_SECONDS`, `EVENT_TTL_DAYS`, `ANNOUNCE_ENABLED`, `PURGE_INTERVAL_S` |
+| Ops | `DEMO_TOKEN`, `RATE_LIMIT_PER_MINUTE`, `DEBOUNCE_SECONDS`, `EVENT_TTL_DAYS`, `PURGE_INTERVAL_S` |
 
 Secrets: **GCP Secret Manager** (`--set-secrets`), **AWS SSM/Secrets Manager**, **Cloudflare**
 (`wrangler secret put`), or a local `.env` (never committed).

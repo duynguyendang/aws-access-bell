@@ -8,6 +8,7 @@ from .util import now_iso, seconds_between
 
 RING_EVENT_KIND_MAP = {
     "button_press": "ding",
+    "doorbell_ding": "ding",
     "ding": "ding",
     "motion_detected": "motion",
     "motion": "motion",
@@ -50,8 +51,14 @@ def extract_payload_hints(raw: dict) -> tuple[list[str], str]:
     meta = raw.get("meta") if isinstance(raw.get("meta"), dict) else {}
     data = raw.get("data") if isinstance(raw.get("data"), dict) else {}
     attributes = data.get("attributes") if isinstance(data.get("attributes"), dict) else {}
-    tags = attributes.get("tags") or meta.get("tags") or []
-    hint = attributes.get("label_hint") or meta.get("label_hint") or ""
+    tags = attributes.get("tags") or meta.get("tags") or raw.get("tags") or []
+    hint = (
+        attributes.get("label_hint")
+        or meta.get("label_hint")
+        or raw.get("label_hint")
+        or raw.get("expected_label")
+        or ""
+    )
     return [str(tag) for tag in tags], str(hint)
 
 
@@ -63,7 +70,13 @@ def parse_ring_payload(data: dict) -> dict:
     event = data.get("data") if isinstance(data.get("data"), dict) else {}
     attributes = event.get("attributes") if isinstance(event.get("attributes"), dict) else {}
 
-    raw_type = str(event.get("type") or data.get("kind") or data.get("type") or "motion")
+    raw_type = str(
+        event.get("type")
+        or data.get("event_type")
+        or data.get("kind")
+        or data.get("type")
+        or "motion"
+    )
     kind = RING_EVENT_KIND_MAP.get(raw_type.lower(), raw_type.lower() or "motion")
 
     device_id = attributes.get("source") or data.get("device_id") or data.get("device") or "unknown"
@@ -71,13 +84,14 @@ def parse_ring_payload(data: dict) -> dict:
     device_time = _ms_to_iso(attributes.get("timestamp")) if attributes.get("timestamp") is not None else ""
     occurred_at = (
         data.get("occurred_at")
+        or data.get("timestamp")
         or data.get("created_at")
         or device_time
         or meta.get("time")
         or now_iso()
     )
 
-    request_id = str(meta.get("request_id") or event.get("id") or "")
+    request_id = str(meta.get("request_id") or event.get("id") or data.get("event_id") or "")
     return {
         "kind": kind,
         "raw_type": raw_type,

@@ -142,7 +142,7 @@ Ring webhook (HMAC)  ──►  AccessBell  ──►  Fire TV / PWA  (Tier 1 ca
 - **Consent escalation** (default OFF): *“if nobody answers, tell Lan”* — durable across restarts  
 - **Mock mode** — full demo without Ring hardware (`MOCK_MODE=true`)  
 - **Bedrock** via LangChain Converse + structured `TriageResult` (AWS Builder mini)  
-- SQLite or Postgres; Docker / Cloud Run scripts; **271 tests** (SQLite; Postgres when DSN set)
+- SQLite or Postgres; Docker / Cloud Run scripts; **292 tests** (SQLite; Postgres when DSN set)
 
 ---
 
@@ -155,7 +155,7 @@ aws-access-bell/
 ├── policy.yaml             # machine-readable privacy/guardrail policy
 ├── .env.example
 ├── Dockerfile / docker-compose.yml   # container + local demo stack
-├── requirements.txt        # core (stub runs offline) + requirements-llm.txt / requirements-postgres.txt / requirements-dev.txt
+├── requirements.txt        # core (stub runs offline) + requirements-bedrock.txt / requirements-llm.txt / requirements-postgres.txt / requirements-dev.txt
 ├── .github/workflows/ci.yml          # pytest (sqlite + postgres) + docker build + container smoke
 ├── backend/
 │   ├── main.py             # FastAPI app: API routes, SSE stream, MCP endpoint
@@ -173,23 +173,26 @@ aws-access-bell/
 │   ├── calendar_mcp.py     # optional Calendar MCP client join (J2, off by default)
 │   ├── policy.py           # policy.yaml version + SHA (audit / metrics)
 │   ├── oauth.py            # OAuth 2.1 resource-server verification (JWKS, scopes, CF header)
-│   ├── notifier.py         # Pluggable announce / SMS (no-op in mock)
+│   ├── notifier.py         # Pluggable announce / SMS (AWS SNS / SES / demo)
 │   ├── util.py             # RateLimiter, ISO timestamps
 │   ── llm/
 │       ├── base.py         # TriageLLM protocol
 │       ├── stub.py         # deterministic offline provider (no deps)
 │       ├── langchain_provider.py  # one ChatModel + with_structured_output(TriageResult) for all live LLMs
 │       └── __init__.py     # build_llm(settings) provider factory
+├── infra/                  # AWS CDK: ECS Fargate + ALB + RDS Postgres + Cognito + Bedrock IAM
+│   ├── app.py / accessbell_stack.py / cdk.json / requirements.txt
 ├── web/                    # Fire TV + PWA UI (index.html / app.js / style.css, manifest + icon, SSE, D-pad, EN/VI)
 ├── mock/events/            # 6 fixture stories (Ring Partner API v1.1 envelopes)
 ├── mock/calendar_mcp/      # optional Calendar MCP stub (J2 demo)
 ├── prompts/triage.txt      # LLM system prompt: TriageResult contract + guardrails
-├── scripts/                # demo_story.py (guided demo), demo_local.py, reset_db.py, ablation_evidence.py, check_docs_consistency.py, deploy_cloudrun.sh, smoke_docker.sh
+├── scripts/                # demo_story.py, demo_local.py, ring_replay.py, deploy_aws.sh, deploy_cloudrun.sh, ablation_evidence.py, check_docs_consistency.py
 ├── docs/
 │   ├── ARCHITECTURE.md     # technical design: flows, API, auth, data model, tests traceability
 │   ├── DEPLOYMENT.md       # system shape, deploy targets, scaling, secrets, go-live checklist
+│   ├── SIMULATION.md       # 4-tier simulation guide: L0 local, L1 replay, L2 AWS simulators, L3 hardware
 │   ── internal/           # strategy + planning notes — local only, not published (gitignored)
-└── tests/                  # pytest: triage, captions/a11y, Ring Partner API v1.1 (webhook/hmac/idempotency), db (sqlite+postgres), mcp, api, escalation, oauth, llm factory
+└── tests/                  # pytest: triage, captions/a11y, Ring Partner API v1.1 (webhook/hmac/idempotency), db (sqlite+postgres), mcp, api, escalation, oauth, notifier, llm factory
 ```
 
 ---
@@ -299,7 +302,7 @@ python -m uvicorn backend.main:app --port 8080
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q        # 271 tests: taxonomy, Ring Partner API v1.1 (HMAC, idempotency), grounding gate, door calendar, Calendar MCP, db (sqlite+postgres), MCP tools, API, consent-share, escalation, OAuth 2.1, captions/a11y, LLM factory
+pytest -q        # 292 tests: taxonomy, Ring Partner API v1.1 (HMAC, idempotency), grounding gate, door calendar, Calendar MCP, db (sqlite+postgres), MCP tools, API, consent-share, escalation, OAuth 2.1, captions/a11y, notifier (SNS/SES), LLM factory
 # Postgres path locally: TEST_POSTGRES_DSN=postgresql://user:pw@host/db pytest -q
 # Container check:      scripts/smoke_docker.sh [image]
 ```
@@ -599,7 +602,7 @@ Drive the whole thing with one command (beats, waits, and the measured proof for
 | Ring webhook ingest (HMAC, Partner API v1.1 shape) + mock fixtures | ✅ |
 | Tier 1 fast captions + Tier 2 grounded triage (Bedrock / stub) | ✅ |
 | Fire TV / PWA web UI (SSE, D-pad, EN/VI) | ✅ |
-| AccessBell MCP (10 door tools, Streamable HTTP) | ✅ |
+| AccessBell MCP (11 door tools, Streamable HTTP) | ✅ |
 | Consent escalation, audit, quick replies, daily brief | ✅ |
 | Evidence gate status + why-line; door calendar `list`/`clear` | ✅ |
 | Calendar MCP join (J2, optional); local stub for demo | ✅ |
@@ -643,6 +646,7 @@ MIT — see [LICENSE](LICENSE).
 |---|---|
 | Architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Deployment | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Simulation Guide | [docs/SIMULATION.md](docs/SIMULATION.md) |
 | MCP transport spec | https://modelcontextprotocol.io/specification/2025-11-25/basic/transports |
 | Alexa+ MCP Toolkit | https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-overview.html |
 | Ring Partner API | https://developer.amazon.com/docs/ring/api-documentation.html |

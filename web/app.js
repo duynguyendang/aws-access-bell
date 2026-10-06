@@ -380,7 +380,7 @@ async function loadWindows() {
   windows.forEach((window) => {
     const item = document.createElement("li");
     const text = document.createElement("span");
-    text.textContent = `${window.label} (${window.window_start} → ${window.window_end})`;
+    text.textContent = `${window.label} (${window.window_start} -> ${window.window_end})`;
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = s("clear");
@@ -422,15 +422,6 @@ async function loadShares() {
   });
 }
 
-const FIXTURE_LABELS = {
-  doorbell_med: { en: "Medicine Delivery", vi: "Giao thuốc" },
-  doorbell_package_window: { en: "Package Delivery", vi: "Giao hàng" },
-  doorbell_family: { en: "Family Visitor", vi: "Người thân" },
-  doorbell_unknown: { en: "Unknown Visitor", vi: "Khách lạ" },
-  motion_only: { en: "Motion", vi: "Chuyển động" },
-  motion_night: { en: "Night Motion", vi: "Chuyển động đêm" },
-};
-
 function buildDemoBar() {
   const section = $("demo");
   section.classList.toggle("hidden", !state.mockMode);
@@ -441,7 +432,7 @@ function buildDemoBar() {
   const btnEn = document.createElement("button");
   btnEn.type = "button";
   btnEn.className = "reply primary";
-  btnEn.textContent = "Demo EN (Medicine)";
+  btnEn.textContent = s("demo_en") || "Demo EN";
   btnEn.addEventListener("click", async () => {
     if (state.lang !== "en") {
       state.lang = "en";
@@ -462,7 +453,7 @@ function buildDemoBar() {
   const btnVi = document.createElement("button");
   btnVi.type = "button";
   btnVi.className = "reply primary";
-  btnVi.textContent = "Demo VI (Giao thuốc)";
+  btnVi.textContent = s("demo_vi") || "Demo VI";
   btnVi.addEventListener("click", async () => {
     if (state.lang !== "vi") {
       state.lang = "vi";
@@ -484,8 +475,8 @@ function buildDemoBar() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "reply";
-    const label = FIXTURE_LABELS[fixture];
-    button.textContent = label ? `${label[state.lang]} (${fixture})` : fixture;
+    const localized = s(`fixture_${fixture}`);
+    button.textContent = localized ? `${localized} (${fixture})` : fixture;
     button.addEventListener("click", async () => {
       const response = await fetch(`/api/simulate?fixture=${encodeURIComponent(fixture)}`, { method: "POST" });
       if (!response.ok) $("note").textContent = `${s("reply_failed")}: ${response.status}`;

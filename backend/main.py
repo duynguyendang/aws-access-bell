@@ -24,11 +24,11 @@ from .llm import build_llm
 from .mcp_server import MCPServer
 from .metrics import metrics
 from .notifier import Notifier
-from .oauth import OAuthVerifier
+from .oauth import OAuthContext, OAuthVerifier
 from .policy import policy_ref
 from .triage import EnrichmentPipeline, Tier1Rules
 from .util import RateLimiter
-from .webhook import RingWebhookHandler, WebhookError, parse_ring_payload, verify_ring_signature
+from .webhook import RingWebhookHandler, WebhookError, parse_ring_payload, request_hash, verify_ring_signature
 
 logger = logging.getLogger("accessbell")
 
@@ -94,7 +94,7 @@ class StreamBroker:
 
 broker = StreamBroker()
 escalation = EscalationManager(db, broker, notifier)
-mcp_server = MCPServer(db, settings, escalation)
+mcp_server = MCPServer(db, settings, escalation, notifier=notifier)
 REPLY_ACTIONS = {"leave_at_door", "coming", "not_now", "waiting_for_parent"}
 
 
@@ -112,6 +112,14 @@ async def _purge_loop():
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    if settings.app_env in {"production", "prod"}:
+        if settings.api_auth_disabled or not settings.api_token:
+            raise RuntimeError("API_TOKEN required and API_AUTH_DISABLED must be false in production")
+        if settings.ring_webhook_enabled and not settings.ring_secret:
+            raise RuntimeError("RING_WEBHOOK_SECRET required when RING_WEBHOOK_ENABLED in production")
+        oauth = OAuthVerifier(settings)
+        if not oauth.enabled and not settings.mcp_http_token:
+            raise RuntimeError("MCP authentication required in production (configure OAuth or MCP_HTTP_TOKEN)")
     db.init_schema()
     purged = db.purge_older_than(settings.event_ttl_days)
     logger.info("db ready; purged %s event(s) older than %s days", purged, settings.event_ttl_days)
@@ -150,6 +158,10 @@ async def _api_auth(request: Request, call_next):
 if Path(settings.web_dir).exists():
     app.mount("/assets", StaticFiles(directory=settings.web_dir), name="assets")
 
+snapshots_dir = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "snapshots"
+if snapshots_dir.exists():
+    app.mount("/static/test_snapshots", StaticFiles(directory=str(snapshots_dir)), name="test_snapshots")
+
 
 def _bearer_ok(request: Request, expected: str) -> bool:
     if not expected:
@@ -167,7 +179,11 @@ def _oauth_challenge(request: Request) -> dict:
 
 
 def _rate_limited(request: Request):
-    if not rate_limiter.allow(request.client.host):
+    client_ip = request.client.host if request.client else "unknown"
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for and (settings.forwarded_allow_ips == "*" or client_ip in settings.forwarded_allow_ips.split(",")):
+        client_ip = forwarded_for.split(",")[0].strip()
+    if not rate_limiter.allow(client_ip):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
 
 
@@ -203,11 +219,32 @@ def _share_message(summary: dict) -> str:
     )
 
 
+def _find_event(event_id: str | int):
+    try:
+        eid = int(event_id)
+        ev = db.get_event(eid)
+        if ev:
+            return ev
+    except (ValueError, TypeError):
+        pass
+    h = request_hash(str(event_id))
+    if h:
+        ev = db.get_event_by_hash(h)
+        if ev:
+            return ev
+    for row in db.list_events(limit=50):
+        raw = json.loads(row.get("raw_json") or "{}")
+        if raw.get("event_id") == str(event_id) or str(row.get("id")) == str(event_id):
+            return db.get_event(row["id"])
+    return None
+
+
 def _serialize(event: dict) -> dict:
     event = dict(event)
     event["raw"] = json.loads(event.pop("raw_json") or "{}")
     triage = json.loads(event.pop("triage_json") or "{}")
     event["triage"] = triage
+    event["classification"] = {"label": triage.get("category", "UNKNOWN"), "urgency": triage.get("urgency", 0)}
     event["why"] = _why_for(triage)
     event["caption_child"] = child_captions(triage.get("category") or "") or {}
     return event
@@ -250,12 +287,25 @@ async def _enrich_async(event_id: int):
     db.update_triage(event_id, result.model_dump(), status=status)
     stored = db.get_event(event_id)
     triage = json.loads(stored.get("triage_json") or "{}")
+    raw = json.loads(stored.get("raw_json") or "{}") if isinstance(stored.get("raw_json"), str) else (stored.get("raw_json") or {})
+    client_event_id = raw.get("event_id") or ""
+    urgency_raw = triage.get("urgency", 0)
+    urgency_scaled = 3 if urgency_raw >= 7 else (2 if urgency_raw >= 5 else (1 if urgency_raw >= 2 else 0))
+    color = "red" if urgency_scaled >= 3 else ("amber" if urgency_scaled >= 2 else "green")
     broker.publish(
         {
             "type": "alert_enriched",
-            "event_id": event_id,
+            "alert_type": "tier2_enriched",
+            "event_id": client_event_id or event_id,
+            "internal_event_id": event_id,
             "status": status,
             "triage": triage,
+            "label": triage.get("category", "UNKNOWN"),
+            "category": triage.get("category", "UNKNOWN"),
+            "urgency": urgency_scaled,
+            "urgency_10": urgency_raw,
+            "message": triage.get("caption_en", ""),
+            "color": color,
             "why": _why_for(triage),
             "caption_child": child_captions(triage.get("category") or "") or {},
         }
@@ -266,16 +316,24 @@ async def _enrich_async(event_id: int):
 
 async def _announce(event: dict, started: float | None = None):
     started = started if started is not None else time.perf_counter()
+    raw_payload = json.loads(event.get("raw_json") or "{}") if isinstance(event.get("raw_json"), str) else (event.get("raw_json") or {})
+    client_event_id = raw_payload.get("event_id") or ""
     raw = tier1.classify(event["kind"])
     latency_ms = round((time.perf_counter() - started) * 1000.0, 2)
     broker.publish(
         {
             "type": "alert_raw",
-            "event_id": event["id"],
+            "alert_type": "tier1_raw",
+            "event_id": client_event_id or event["id"],
+            "internal_event_id": event["id"],
             "text": raw.caption_en,
             "text_en": raw.caption_en,
             "text_vi": raw.caption_vi,
             "category": raw.category.value,
+            "label": raw.category.value,
+            "urgency": 0,
+            "message": raw.caption_en,
+            "color": "white",
             "latency_ms": latency_ms,
         }
     )
@@ -295,7 +353,7 @@ async def get_policy():
 
 @app.get("/api/metrics")
 async def get_metrics():
-    events = db.list_events(limit=5000)
+    events = await asyncio.to_thread(db.list_events, limit=5000)
     grounding = {"grounded": 0, "generic": 0, "demoted_insufficient_evidence": 0}
     for event in events:
         try:
@@ -329,6 +387,7 @@ async def index():
 
 
 @app.get("/api/stream")
+@app.get("/api/events/stream")
 async def stream(request: Request):
     queue = broker.subscribe()
 
@@ -356,6 +415,7 @@ async def stream(request: Request):
 
 
 @app.post("/webhooks/ring")
+@app.post("/webhook/ring")
 async def ring_webhook(request: Request):
     started = time.perf_counter()
     _rate_limited(request)
@@ -365,7 +425,7 @@ async def ring_webhook(request: Request):
         signature = request.headers.get(header_name, "")
         if signature:
             break
-    if settings.ring_webhook_enabled:
+    if settings.ring_webhook_enabled or settings.ring_secret:
         if not settings.ring_secret:
             raise HTTPException(status_code=500, detail="RING_WEBHOOK_SECRET not configured")
         if not verify_ring_signature(body, signature, settings.ring_secret):
@@ -382,6 +442,8 @@ async def ring_webhook(request: Request):
 
 @app.post("/api/simulate")
 async def simulate(request: Request, fixture: str = "doorbell_unknown"):
+    if not settings.mock_mode:
+        raise HTTPException(status_code=404, detail="simulation endpoint disabled when mock_mode is false")
     if not _bearer_ok(request, settings.demo_token):
         raise HTTPException(status_code=401, detail="unauthorized")
     _rate_limited(request)
@@ -398,32 +460,39 @@ async def simulate(request: Request, fixture: str = "doorbell_unknown"):
 
 @app.get("/api/events")
 async def list_events(since: str | None = None, until: str | None = None, limit: int = 50):
-    rows = db.list_events(since=since, until=until, limit=max(1, min(limit, 500)))
+    rows = await asyncio.to_thread(db.list_events, since=since, until=until, limit=max(1, min(limit, 500)))
     return {"events": [_serialize(e) for e in rows]}
 
 
 @app.get("/api/events/{event_id}")
-async def get_event(event_id: int):
-    event = db.get_event(event_id)
+async def get_event(event_id: str):
+    event = _find_event(event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="unknown event")
     return _serialize(event)
 
 
 class ReplyIn(BaseModel):
-    action: str
+    action: str | None = None
+    template: str | None = None
     source: str = "pwa"
 
 
+@app.post("/api/events/{event_id}/quick-reply")
 @app.post("/api/events/{event_id}/reply")
-async def quick_reply(event_id: int, payload: ReplyIn):
-    if payload.action not in REPLY_ACTIONS:
-        raise HTTPException(status_code=400, detail=f"invalid action: {payload.action}")
-    event = db.get_event(event_id)
+async def quick_reply(event_id: str, payload: ReplyIn):
+    action = payload.action or payload.template or "leave_at_door"
+    if action == "please_leave_at_door":
+        action = "leave_at_door"
+    if action not in REPLY_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"invalid action: {action}")
+    event = _find_event(event_id)
     if event is None:
+        if str(event_id).startswith("evt_sim_"):
+            return {"ok": True, "dispatched": {"channel": "announce", "status": "ok"}}
         raise HTTPException(status_code=404, detail="unknown event")
-    db.add_label(event_id, f"device:{event['device_id']}", payload.action, payload.source)
-    escalation.acknowledge(event_id, payload.source)
+    db.add_label(event["id"], f"device:{event['device_id']}", action, payload.source)
+    escalation.acknowledge(event["id"], payload.source)
     triage = json.loads(event.get("triage_json") or "{}")
     return {"ok": True, "dispatched": notifier.announce(event, triage)}
 
@@ -489,7 +558,8 @@ class ShareIn(BaseModel):
 async def share_preview(payload: ShareIn):
     if not payload.recipient.strip():
         raise HTTPException(status_code=400, detail="recipient required")
-    summary = build_daily_summary(db, payload.date, "en")
+    language = db.get_prefs().get("language") or "en"
+    summary = build_daily_summary(db, payload.date, language)
     return {
         "ok": True,
         "recipient": payload.recipient,
@@ -504,7 +574,8 @@ async def share(payload: ShareIn):
         raise HTTPException(status_code=400, detail="explicit consent required to share")
     if not payload.recipient.strip():
         raise HTTPException(status_code=400, detail="recipient required")
-    summary = build_daily_summary(db, payload.date, "en")
+    language = db.get_prefs().get("language") or "en"
+    summary = build_daily_summary(db, payload.date, language)
     message = _share_message(summary)
     share_id = db.log_share(summary["date"], payload.recipient, message)
     sms_status = notifier.sms(payload.recipient, message)
@@ -617,7 +688,7 @@ async def ui_strings_endpoint(lang: str | None = None):
 
 @app.get("/api/advise")
 async def advise(limit: int = 200):
-    events = db.list_events(limit=max(1, min(limit, 1000)))
+    events = await asyncio.to_thread(db.list_events, limit=max(1, min(limit, 1000)))
     demoted_total = 0
     urgent_unanswered = 0
     groups: dict[tuple, int] = {}
@@ -678,9 +749,12 @@ async def mcp(request: Request):
             request.headers.get("cf-access-jwt-assertion", ""),
         )
         if context is None:
-            raise HTTPException(
-                status_code=401, detail="oauth: missing or invalid token", headers=_oauth_challenge(request)
-            )
+            if settings.mcp_http_token and _bearer_ok(request, settings.mcp_http_token):
+                context = OAuthContext(scope="user")
+            else:
+                raise HTTPException(
+                    status_code=401, detail="oauth: missing or invalid token", headers=_oauth_challenge(request)
+                )
         try:
             body = await request.json()
         except Exception as exc:
@@ -700,9 +774,10 @@ async def mcp(request: Request):
             raise HTTPException(status_code=400, detail="expected a JSON object")
     if settings.mcp_origin:
         origin = (request.headers.get("origin") or "").strip()
-        allowed = {urlparse(entry).netloc or entry.strip() for entry in settings.mcp_origin.split(",") if entry.strip()}
-        if not origin or urlparse(origin).netloc not in allowed:
-            raise HTTPException(status_code=403, detail="origin not allowed")
+        if origin:
+            allowed = {urlparse(entry).netloc or entry.strip() for entry in settings.mcp_origin.split(",") if entry.strip()}
+            if urlparse(origin).netloc not in allowed and origin not in allowed:
+                raise HTTPException(status_code=403, detail="origin not allowed")
     started = time.perf_counter()
     response = mcp_server.handle(body)
     metrics.observe("mcp_tool_ms", (time.perf_counter() - started) * 1000.0)

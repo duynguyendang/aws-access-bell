@@ -9,6 +9,8 @@ accessbell.db*
 docs
 tests
 scripts
+infra
+**/.venv
 .dockerignore
 Dockerfile
 docker-compose.yml

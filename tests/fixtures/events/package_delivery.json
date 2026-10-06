@@ -1,0 +1,10 @@
+{
+  "event_type": "doorbell_ding",
+  "device_id": "front_door_sim_001",
+  "snapshot_key": "package_delivery.jpg",
+  "expected_label": "PACKAGE_DELIVERY",
+  "metadata": {
+    "label_hint": "package",
+    "tags": ["package", "delivery"]
+  }
+}

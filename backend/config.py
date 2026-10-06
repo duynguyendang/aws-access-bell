@@ -20,11 +20,32 @@ def _int(name: str, default: int) -> int:
         return default
 
 
+def _db_url() -> str:
+    explicit = _env("DB_URL")
+    if explicit:
+        return explicit
+    pg_host = _env("POSTGRES_HOST") or _env("DB_HOST")
+    if pg_host:
+        pg_user = _env("POSTGRES_USER") or _env("DB_USER", "accessbell")
+        pg_pw = _env("POSTGRES_PASSWORD") or _env("DB_PASSWORD", "")
+        pg_port = _env("POSTGRES_PORT") or _env("DB_PORT", "5432")
+        pg_db = _env("POSTGRES_DB") or _env("DB_NAME", "accessbell")
+        return f"postgresql://{pg_user}:{pg_pw}@{pg_host}:{pg_port}/{pg_db}"
+    return f"sqlite:///{_env('DB_PATH', 'accessbell.db')}"
+
+
+def _api_auth_disabled() -> bool:
+    raw = os.getenv("API_AUTH_DISABLED")
+    if raw is not None:
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+    return not bool(os.getenv("API_TOKEN"))
+
+
 @dataclass
 class Settings:
     mock_mode: bool = field(default_factory=lambda: _flag("MOCK_MODE", True))
     llm_provider: str = field(default_factory=lambda: _env("LLM_PROVIDER", "stub").lower())
-    db_url: str = field(default_factory=lambda: _env("DB_URL") or f"sqlite:///{_env('DB_PATH', 'accessbell.db')}")
+    db_url: str = field(default_factory=_db_url)
     db_path: str = field(default_factory=lambda: _env("DB_PATH", "accessbell.db"))
     web_dir: str = field(default_factory=lambda: _env("WEB_DIR", "web"))
     mock_events_dir: str = field(default_factory=lambda: _env("MOCK_EVENTS_DIR", "mock/events"))
@@ -67,7 +88,7 @@ class Settings:
     quiet_hours_start: str = field(default_factory=lambda: _env("QUIET_HOURS_START"))
     quiet_hours_end: str = field(default_factory=lambda: _env("QUIET_HOURS_END"))
     api_token: str = field(default_factory=lambda: _env("API_TOKEN"))
-    api_auth_disabled: bool = field(default_factory=lambda: _flag("API_AUTH_DISABLED", True))
+    api_auth_disabled: bool = field(default_factory=_api_auth_disabled)
     purge_interval_s: int = field(default_factory=lambda: _int("PURGE_INTERVAL_S", 86400))
     port: int = field(default_factory=lambda: _int("PORT", 8080))
 
@@ -76,6 +97,15 @@ class Settings:
     debounce_seconds: int = field(default_factory=lambda: _int("DEBOUNCE_SECONDS", 10))
     event_ttl_days: int = field(default_factory=lambda: _int("EVENT_TTL_DAYS", 30))
     announce_enabled: bool = field(default_factory=lambda: _flag("ANNOUNCE_ENABLED", False))
+
+
+    app_env: str = field(default_factory=lambda: _env("APP_ENV", "development").lower())
+    forwarded_allow_ips: str = field(default_factory=lambda: _env("FORWARDED_ALLOW_IPS", "*"))
+    notifier_provider: str = field(default_factory=lambda: _env("NOTIFIER_PROVIDER", "log").lower())
+    sns_topic_arn: str = field(default_factory=lambda: _env("SNS_TOPIC_ARN"))
+    ses_sender_email: str = field(default_factory=lambda: _env("SES_SENDER_EMAIL"))
+    oauth_scope_prefix: str = field(default_factory=lambda: _env("OAUTH_SCOPE_PREFIX", ""))
+    oauth_client_ids: str = field(default_factory=lambda: _env("OAUTH_CLIENT_IDS", ""))
 
 
 settings = Settings()

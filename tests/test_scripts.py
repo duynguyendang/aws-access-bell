@@ -42,3 +42,18 @@ def test_consistency_script_reports_clean():
     claimed = int(re.search(r"\*\*(\d+) tests\*\*", (ROOT / "README.md").read_text(encoding="utf-8")).group(1))
     assert checker.check_test_count(collected=claimed) == []
     assert checker.check_test_count(collected=claimed + 1) != []
+
+
+def test_ring_replay_script_is_wired():
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "ring_replay.py"), "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    for flag in ("--url", "--secret", "--fixture", "--delay"):
+        assert flag in result.stdout
+
+    replay = _load("ring_replay", "scripts/ring_replay.py")
+    sig = replay.compute_signature(b"test-payload", "test-secret")
+    assert sig.startswith("sha256=")

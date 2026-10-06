@@ -1,0 +1,10 @@
+{
+  "event_type": "doorbell_ding",
+  "device_id": "front_door_sim_001",
+  "snapshot_key": "unknown_visitor.jpg",
+  "expected_label": "UNKNOWN_VISITOR",
+  "metadata": {
+    "label_hint": "unknown",
+    "tags": ["stranger"]
+  }
+}

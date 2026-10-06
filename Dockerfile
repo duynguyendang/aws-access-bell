@@ -4,8 +4,11 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 
 COPY requirements.txt requirements-llm.txt ./
+COPY requirements-postgres.txt requirements-bedrock.txt ./
+ARG INSTALL_AWS=true
 ARG INSTALL_LLM=false
 RUN pip install --no-cache-dir -r requirements.txt \
+    && if [ "$INSTALL_AWS" = "true" ]; then pip install --no-cache-dir -r requirements-postgres.txt -r requirements-bedrock.txt; fi \
     && if [ "$INSTALL_LLM" = "true" ]; then pip install --no-cache-dir -r requirements-llm.txt; fi
 
 COPY backend ./backend

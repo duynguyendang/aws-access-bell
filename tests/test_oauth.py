@@ -270,3 +270,26 @@ def test_reverts_to_local_token_when_oauth_off(monkeypatch, client):
         headers={"Authorization": "Bearer legacy"},
     )
     assert ok.status_code == 200
+
+
+def test_cognito_access_token_with_client_id(verifier, idp, monkeypatch):
+    monkeypatch.setattr(settings, "oauth_audience", "")
+    monkeypatch.setattr(settings, "oauth_client_ids", "cognito-app-client-123")
+    # Cognito access tokens have client_id and token_use='access' but no aud
+    claims = {
+        "client_id": "cognito-app-client-123",
+        "token_use": "access",
+        "scope": "mcp:tools",
+    }
+    token = idp.sign_claims(claims) if hasattr(idp, "sign_claims") else idp.sign("mcp:tools")
+    ctx = verifier.authenticate(f"Bearer {token}")
+    assert ctx is not None
+    assert ctx.can_act_for_user
+
+
+def test_cognito_scope_prefix_handled(verifier, idp, monkeypatch):
+    monkeypatch.setattr(settings, "oauth_scope_prefix", "accessbell/")
+    token = idp.sign("accessbell/mcp:tools")
+    ctx = verifier.authenticate(f"Bearer {token}")
+    assert ctx is not None
+    assert ctx.can_act_for_user

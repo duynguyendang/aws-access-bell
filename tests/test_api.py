@@ -318,7 +318,38 @@ def test_mcp_endpoint_rejects_non_object_and_bad_origin(client, monkeypatch):
         "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"}, headers={"Origin": "https://client.example.com"}
     )
     assert allowed.status_code == 200
+    s2s = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"})
+    assert s2s.status_code == 200
     monkeypatch.setattr(settings, "mcp_origin", "")
+
+
+def test_simulate_disabled_when_not_mock_mode(client, monkeypatch):
+    monkeypatch.setattr(settings, "mock_mode", False)
+    res = client.post("/api/simulate?fixture=doorbell_unknown")
+    assert res.status_code == 404
+    monkeypatch.setattr(settings, "mock_mode", True)
+
+
+def test_forwarded_for_rate_limiting(client, monkeypatch):
+    from backend.util import RateLimiter
+
+    limiter = RateLimiter(1)
+    monkeypatch.setattr(main_module, "rate_limiter", limiter)
+    monkeypatch.setattr(settings, "forwarded_allow_ips", "*")
+
+    res1 = client.get("/api/policy", headers={"X-Forwarded-For": "203.0.113.195"})
+    assert res1.status_code == 200
+
+
+def test_production_lifespan_assertions(monkeypatch):
+    import pytest
+    from backend.config import settings
+
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "api_token", "")
+    with pytest.raises(RuntimeError, match="API_TOKEN required"):
+        with TestClient(main_module.app):
+            pass
 
 
 def test_stream_broker_publish_format():

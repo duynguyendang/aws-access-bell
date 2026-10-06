@@ -1,4 +1,8 @@
 import os
+import uuid
+
+if "DB_URL" not in os.environ:
+    os.environ["DB_URL"] = f"sqlite:////tmp/accessbell_test_{uuid.uuid4().hex}.db"
 
 import pytest
 

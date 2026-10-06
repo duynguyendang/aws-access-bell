@@ -1,0 +1,10 @@
+{
+  "event_type": "motion_detected",
+  "device_id": "front_door_sim_001",
+  "snapshot_key": "motion_noise.jpg",
+  "expected_label": "MOTION_ANOMALY",
+  "metadata": {
+    "label_hint": "noise",
+    "tags": ["motion"]
+  }
+}
