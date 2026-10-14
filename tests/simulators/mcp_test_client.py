@@ -102,16 +102,23 @@ class MCPTestClient:
         results["tools"] = [t["name"] for t in tools]
         print(f"   Found {len(tools)} tools: {[t['name'] for t in tools]}")
 
+        latest_event_id = None
         if "get_door_alerts" in results["tools"]:
             print("3. Testing get_door_alerts...")
             r = await self.call_tool("get_door_alerts", {
-                "urgency_level": 2,
-                "time_range": "last_24h",
+                "urgency_min": 0,
             })
             results["get_door_alerts"] = r
             content = r.get("result", {}).get("content", [{}])
             text = content[0].get("text", "") if content else ""
             print(f"   Response: {text[:200]}")
+            try:
+                data = json.loads(text)
+                alerts = data.get("alerts", [])
+                if alerts:
+                    latest_event_id = alerts[0].get("event_id")
+            except Exception:
+                pass
 
         if "get_daily_summary" in results["tools"]:
             print("4. Testing get_daily_summary...")
@@ -121,19 +128,19 @@ class MCPTestClient:
             text = content[0].get("text", "") if content else ""
             print(f"   Summary: {text[:200]}")
 
-        if "get_event_detail" in results["tools"]:
-            print("5. Testing get_event_detail...")
+        if latest_event_id is not None and "get_event_detail" in results["tools"]:
+            print(f"5. Testing get_event_detail (event_id={latest_event_id})...")
             r = await self.call_tool("get_event_detail", {
-                "event_id": "evt_sim_test",
+                "event_id": latest_event_id,
             })
             results["get_event_detail"] = r
             print("   Done")
 
-        if "send_quick_reply" in results["tools"] or "send_door_response" in results["tools"]:
+        if latest_event_id is not None and ("send_quick_reply" in results["tools"] or "send_door_response" in results["tools"]):
             tool_name = "send_quick_reply" if "send_quick_reply" in results["tools"] else "send_door_response"
-            print(f"6. Testing {tool_name}...")
+            print(f"6. Testing {tool_name} (event_id={latest_event_id})...")
             r = await self.call_tool(tool_name, {
-                "event_id": "evt_sim_test",
+                "event_id": latest_event_id,
                 "action": "leave_at_door",
             })
             results["send_door_response"] = r

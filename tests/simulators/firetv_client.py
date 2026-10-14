@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
@@ -19,6 +19,7 @@ class FireTVAlert:
     timestamp: float
     latency_ms: float = 0.0
     internal_event_id: Optional[str] = None
+    triage: dict = field(default_factory=dict)
 
 
 class FireTVSimulator:
@@ -89,6 +90,7 @@ class FireTVSimulator:
             color=color,
             timestamp=time.monotonic(),
             internal_event_id=str(data.get("internal_event_id")) if data.get("internal_event_id") is not None else None,
+            triage=data.get("triage") or {},
         )
 
         if "latency_ms" in data:

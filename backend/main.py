@@ -488,8 +488,6 @@ async def quick_reply(event_id: str, payload: ReplyIn):
         raise HTTPException(status_code=400, detail=f"invalid action: {action}")
     event = _find_event(event_id)
     if event is None:
-        if str(event_id).startswith("evt_sim_"):
-            return {"ok": True, "dispatched": {"channel": "announce", "status": "ok"}}
         raise HTTPException(status_code=404, detail="unknown event")
     db.add_label(event["id"], f"device:{event['device_id']}", action, payload.source)
     escalation.acknowledge(event["id"], payload.source)

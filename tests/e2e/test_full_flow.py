@@ -82,7 +82,15 @@ def test_full_flow_package_delivery(live_server):
                 timeout=6.0,
             )
             assert tier2_alert is not None
-            assert tier2_alert.label in (scenario["expected_label"], "UNKNOWN_VISITOR")
+            triage = tier2_alert.triage or {}
+            grounding = triage.get("grounding")
+            if tier2_alert.label == scenario["expected_label"]:
+                assert grounding == "grounded"
+            else:
+                assert tier2_alert.label == "UNKNOWN_VISITOR"
+                assert grounding in ("demoted_insufficient_evidence", "generic")
+            assert triage.get("caption_en")
+            assert triage.get("caption_vi")
 
             await alexa.announce(
                 event_id=event_id,
@@ -122,7 +130,16 @@ def test_full_flow_med_delivery(live_server):
             )
 
             assert tier2_alert is not None
-            assert tier2_alert.label in ("MED_DELIVERY", "UNKNOWN_VISITOR")
+            triage = tier2_alert.triage or {}
+            grounding = triage.get("grounding")
+            if tier2_alert.label == "MED_DELIVERY":
+                assert grounding == "grounded"
+                assert tier2_alert.urgency >= 2
+            else:
+                assert tier2_alert.label == "UNKNOWN_VISITOR"
+                assert grounding in ("demoted_insufficient_evidence", "generic")
+            assert triage.get("caption_en")
+            assert triage.get("caption_vi")
 
             await alexa.announce(event_id, tier2_alert.message, "en")
         finally:
@@ -139,10 +156,13 @@ def test_debounce(live_server):
             ring = RingSimulator(base_url=live_server)
             results = await ring.send_debounce_burst(count=3, interval_ms=100)
             await asyncio.sleep(2)
+            assert results[0]["response_body"].get("deduped") is False
+            assert results[1]["response_body"].get("deduped") is True
+            assert results[2]["response_body"].get("deduped") is True
             event_ids = [r["event_id"] for r in results]
             alerts = [a for a in firetv.alerts if a.event_id in event_ids]
             tier2_events = set(a.event_id for a in alerts if a.alert_type == "tier2_enriched")
-            assert len(tier2_events) <= 2
+            assert len(tier2_events) == 1
         finally:
             await firetv.disconnect()
 
@@ -153,8 +173,7 @@ def test_mcp_query_after_events(live_server):
     async def _run():
         mcp = MCPTestClient(mcp_url=f"{live_server}/mcp")
         result = await mcp.call_tool("get_door_alerts", {
-            "urgency_level": 2,
-            "time_range": "last_24h",
+            "urgency_min": 2,
         })
         content = result.get("result", {}).get("content", [])
         assert len(content) > 0
@@ -173,15 +192,31 @@ def test_mcp_daily_summary(live_server):
 
 
 def test_quick_reply(live_server):
-    headers = {}
-    token = os.getenv("API_TOKEN", "")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    with httpx.Client() as client:
-        r = client.post(
-            f"{live_server}/api/events/evt_sim_test/quick-reply",
-            json={"template": "please_leave_at_door"},
-            headers=headers,
-            timeout=5.0,
+    async def _run():
+        ring = RingSimulator(base_url=live_server)
+        scenario = SCENARIOS["package_delivery"]
+        send_result = await ring.send_doorbell_press(
+            snapshot_key=scenario["snapshot_key"],
+            expected_label=scenario["expected_label"],
         )
-    assert r.status_code in (200, 202)
+        event_id = send_result.get("response_body", {}).get("event_id") or send_result["event_id"]
+
+        headers = {}
+        token = os.getenv("API_TOKEN", "")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"{live_server}/api/events/{event_id}/quick-reply",
+                json={"action": "leave_at_door"},
+                headers=headers,
+                timeout=5.0,
+            )
+            assert r.status_code in (200, 202)
+            assert r.json().get("ok") is True
+
+            r_get = await client.get(f"{live_server}/api/events/{event_id}", headers=headers, timeout=5.0)
+            assert r_get.status_code == 200
+
+    asyncio.run(_run())

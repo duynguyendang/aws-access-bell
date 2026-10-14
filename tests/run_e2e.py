@@ -87,8 +87,7 @@ async def run_full_demo(base_url: str = DEFAULT_BASE, mcp_url: str = DEFAULT_MCP
     if mcp:
         print("\nStep 5: Querying MCP after events...")
         r = await mcp.call_tool("get_door_alerts", {
-            "urgency_level": 2,
-            "time_range": "last_24h",
+            "urgency_min": 2,
         })
         content = r.get("result", {}).get("content", [{}])
         if content:

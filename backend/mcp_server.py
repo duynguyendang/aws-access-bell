@@ -328,8 +328,6 @@ class MCPServer:
                     event = self._db.get_event(row["id"])
                     break
         if event is None:
-            if str(event_id).startswith("evt_sim_"):
-                return {"id": 0, "device_id": "sim_door", "kind": "ding", "occurred_at": "", "triage_json": "{}", "raw_json": "{}"}
             raise ValueError(f"unknown event_id: {event_id}")
         return event
 

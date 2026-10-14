@@ -185,6 +185,23 @@ def beat_act(demo, event):
     demo.show("reply accepted", f"{status} {data}")
 
 
+def beat_child(demo, event):
+    demo.beat("3b", "Child mode: calm captions and safe options",
+              "An (10) is home after school: child mode simplifies options to 'Wait for parent'.")
+    child_caption = (event.get("caption_child") or {}).get("en") or "Someone is at the door. You can wait for a parent."
+    demo.show("child caption", child_caption)
+    status, data = demo.post(f"/api/events/{event['id']}/reply", {"action": "waiting_for_parent", "source": "pwa"})
+    demo.show("child reply", f"{status} {data}")
+
+
+def beat_equity(demo):
+    demo.beat("7b", "Equity: Ring AI subscription off -> full accessibility",
+              "No expensive camera AI required - the rules-first fast path and local triage deliver full accessibility.")
+    _, health = demo.get("/health")
+    demo.show("llm_provider", health.get("llm_provider"))
+    demo.show("offline capable", "Tier 1 rules (<200ms) + grounded local triage always active")
+
+
 def beat_protect(demo, args):
     demo.beat(4, "Protect: consent escalation, audited and revocable",
               "If nobody answers in time, Lan hears about it - and the audit trail proves it.")
@@ -315,11 +332,13 @@ def main():
     beat_generic(demo)
     event = beat_grounded(demo)
     beat_act(demo, event)
+    beat_child(demo, event)
     if args.escalate != "off":
         beat_protect(demo, args)
     beat_ask(demo, args)
     beat_advise(demo)
     beat_share(demo, args)
+    beat_equity(demo)
     beat_proof(demo)
     beat_calendar(demo, args)
     beat_demotion(demo, args)
