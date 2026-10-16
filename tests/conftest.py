@@ -9,6 +9,7 @@ import pytest
 from backend.db import Database
 
 TABLES = (
+    "door_turns",
     "escalation_log",
     "escalation_pending",
     "escalation_contacts",

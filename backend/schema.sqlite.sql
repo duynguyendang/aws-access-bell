@@ -107,3 +107,14 @@ INSERT OR IGNORE INTO escalation_pending_fix (event_id, fire_at, timeout_seconds
     FROM escalation_pending_legacy ep JOIN events e ON e.id = ep.event_id;
 DROP TABLE escalation_pending_legacy;
 ALTER TABLE escalation_pending_fix RENAME TO escalation_pending;
+
+CREATE TABLE IF NOT EXISTS door_turns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    speaker TEXT NOT NULL,
+    text TEXT NOT NULL,
+    lang TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_door_turns_event ON door_turns(event_id);

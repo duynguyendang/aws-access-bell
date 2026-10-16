@@ -40,6 +40,15 @@
         <span id="context" class="badge"></span>
       </div>
       <div id="evidence" class="evidence"></div>
+      <div id="verification" class="meta hidden">
+        <span id="verification-badge" class="badge"></span>
+        <span id="risk-badge" class="badge"></span>
+      </div>
+      <p id="challenge" class="why hidden"></p>
+      <div id="memory" class="hidden">
+        <span id="memory-text"></span>
+        <button id="memory-use" class="reply" type="button"></button>
+      </div>
       <div id="escalation" class="escalation hidden">
         <span id="escalation-text"></span>
         <button id="stop-escalation" class="danger" type="button"></button>
@@ -70,6 +79,32 @@
         <button id="add-window" class="primary" type="submit"></button>
       </form>
       <ul id="windows" class="list"></ul>
+    </section>
+
+    <section class="panel" id="talk-panel">
+      <h2 id="h-talk"></h2>
+      <div class="grid">
+        <label id="l-talk-speaker" for="talk-speaker"></label>
+        <select id="talk-speaker">
+          <option value="visitor" id="opt-visitor"></option>
+          <option value="resident" id="opt-resident"></option>
+        </select>
+        <label id="l-talk-lang" for="talk-lang"></label>
+        <select id="talk-lang">
+          <option value="en">EN</option>
+          <option value="vi">VI</option>
+        </select>
+        <label id="l-talk-text" for="talk-text"></label>
+        <input id="talk-text" />
+      </div>
+      <div class="replies">
+        <button id="talk-mic" type="button"></button>
+        <button id="talk-translate" type="button"></button>
+        <button id="talk-speak" type="button"></button>
+        <button id="talk-send" class="primary" type="button"></button>
+      </div>
+      <p id="talk-translation" class="note" aria-live="polite"></p>
+      <ul id="talk-turns" class="list"></ul>
     </section>
 
     <section class="panel">

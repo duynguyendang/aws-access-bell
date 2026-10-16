@@ -36,7 +36,13 @@ class CalendarClient:
         self._token = token
         self._timeout = timeout
         self._window = window_seconds
-        self._http = httpx.Client(timeout=timeout, transport=transport)
+        self._http = httpx.Client(
+            timeout=timeout,
+            transport=transport,
+            # Do not inherit proxy env: httpx crashes on malformed NO_PROXY
+            # (e.g. "[::1]") and Calendar MCP endpoints are direct local/LAN calls.
+            trust_env=False,
+        )
 
     def _window_end(self, occurred_at: str) -> str:
         try:

@@ -25,6 +25,8 @@ from .mcp_server import MCPServer
 from .metrics import metrics
 from .notifier import Notifier
 from .oauth import OAuthContext, OAuthVerifier
+from .phrasebook import lookup as phrasebook_lookup
+from .phrasebook import pairs as phrasebook_pairs
 from .policy import policy_ref
 from .triage import EnrichmentPipeline, Tier1Rules
 from .util import RateLimiter
@@ -247,6 +249,7 @@ def _serialize(event: dict) -> dict:
     event["classification"] = {"label": triage.get("category", "UNKNOWN"), "urgency": triage.get("urgency", 0)}
     event["why"] = _why_for(triage)
     event["caption_child"] = child_captions(triage.get("category") or "") or {}
+    event["door_turns"] = db.list_door_turns(event["id"])
     return event
 
 
@@ -512,6 +515,34 @@ async def confirm_event(event_id: int, payload: ConfirmIn):
     return {"ok": True}
 
 
+class DoorTalkIn(BaseModel):
+    speaker: str
+    text: str
+    lang: str = "en"
+
+
+@app.post("/api/events/{event_id}/door-talk")
+async def add_door_talk(event_id: int, payload: DoorTalkIn):
+    if db.get_event(event_id) is None:
+        raise HTTPException(status_code=404, detail="unknown event")
+    try:
+        turn_id = db.add_door_turn(event_id, payload.speaker, payload.text, payload.lang)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    turn = next((t for t in db.list_door_turns(event_id) if t["id"] == turn_id), None)
+    # Phrasebook only: exact fixed-prompt match, else null (never fake
+    # a free-text translation). Translation preview in the UI does not
+    # store a turn — it uses the same fixed prompts client-side.
+    return {"ok": True, "turn_id": turn_id, "turn": turn, "phrasebook": phrasebook_lookup(payload.text)}
+
+
+@app.get("/api/events/{event_id}/door-talk")
+async def list_door_talk(event_id: int):
+    if db.get_event(event_id) is None:
+        raise HTTPException(status_code=404, detail="unknown event")
+    return {"turns": db.list_door_turns(event_id)}
+
+
 class ExpectedIn(BaseModel):
     kind: str
     label: str
@@ -681,7 +712,7 @@ async def ui_strings_endpoint(lang: str | None = None):
     language = lang or db.get_prefs().get("language") or "en"
     if language not in ("en", "vi"):
         language = "en"
-    return {"language": language, "strings": caption_ui(language)}
+    return {"language": language, "strings": caption_ui(language), "phrasebook": phrasebook_pairs()}
 
 
 @app.get("/api/advise")

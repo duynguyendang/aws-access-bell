@@ -2,10 +2,15 @@ import pytest
 
 from backend.captions import (
     BRIEF,
+    CHALLENGE,
     CHILD,
     GENERIC,
     LANGUAGES,
     MAX_CAPTION_LENGTH,
+    MEMORY_ACTION,
+    MEMORY_BASIS,
+    MEMORY_CATEGORY,
+    PHRASEBOOK,
     QUIET,
     STUB,
     TIER1,
@@ -106,6 +111,31 @@ def test_ui_strings_are_complete_and_safe():
             assert is_short_enough(formatted)
     assert ui_strings("vi")["stop_escalation"] == UI["vi"]["stop_escalation"]
     assert ui_strings("unknown") == UI["en"]
+
+
+def test_challenge_and_memory_strings_are_complete_and_safe():
+    for language in LANGUAGES:
+        challenge = CHALLENGE[language]
+        assert challenge.strip()
+        assert is_tts_safe(challenge)
+        assert is_short_enough(challenge)
+        for mapping in (MEMORY_CATEGORY, MEMORY_ACTION):
+            for entry in mapping.values():
+                text = entry[language]
+                assert text.strip()
+                assert is_tts_safe(text)
+                assert is_short_enough(text)
+        basis = MEMORY_BASIS[language].format(
+            category=MEMORY_CATEGORY["MED_DELIVERY"][language],
+            action=MEMORY_ACTION["leave_at_door"][language],
+        )
+        assert basis.strip()
+        assert is_tts_safe(basis)
+        assert is_short_enough(basis)
+    for en, vi in PHRASEBOOK:
+        assert en.strip() and vi.strip()
+        assert is_tts_safe(en) and is_tts_safe(vi)
+        assert is_short_enough(en) and is_short_enough(vi)
 
 
 def test_why_text_explains_context_timeout():

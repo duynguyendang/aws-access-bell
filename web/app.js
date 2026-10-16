@@ -16,6 +16,28 @@ const GROUNDING_KEY = {
 };
 const URGENCY_CLASS = (urgency) =>
   urgency >= 7 ? "u-red" : urgency >= 5 ? "u-amber" : "u-green";
+const VERIFICATION_KEY = {
+  verified: "verification_verified",
+  unverified: "verification_unverified",
+  contradiction: "verification_contradiction",
+  no_claim: "verification_no_claim",
+};
+const RISK_KEY = { low: "risk_low", medium: "risk_medium", high: "risk_high" };
+
+// Fixed-prompt phrasebook pairs are served by /api/ui-strings (single source:
+// backend/captions.py). Exact-match only — never a free-text translation.
+function normalizePrompt(text) {
+  return (text || "").trim().toLowerCase().replace(/\s+/g, " ").replace(/[.?!]+$/, "").trim();
+}
+function lookupPhrasebook(pairs, text) {
+  const target = normalizePrompt(text);
+  if (!target) return null;
+  for (const { en, vi } of pairs || []) {
+    if (normalizePrompt(en) === target) return { text: vi, lang: "vi" };
+    if (normalizePrompt(vi) === target) return { text: en, lang: "en" };
+  }
+  return null;
+}
 const $ = (id) => document.getElementById(id);
 
 const state = {
@@ -25,6 +47,7 @@ const state = {
   child: false,
   bilingual: false,
   strings: {},
+  phrasebook: [],
   currentEventId: null,
   last: null,
   escalation: null,
@@ -90,6 +113,7 @@ async function loadMeta() {
 async function loadStrings() {
   const data = await (await fetch(`/api/ui-strings?lang=${state.lang}`)).json();
   state.strings = data.strings || {};
+  state.phrasebook = data.phrasebook || [];
   document.documentElement.lang = state.lang;
 }
 
@@ -115,6 +139,17 @@ function applyStatic() {
   setText("preview", "preview");
   setText("share", "share_now");
   setText("stop-escalation", "stop_escalation");
+  setText("h-talk", "talk_title");
+  setText("l-talk-speaker", "talk_speaker");
+  setText("opt-visitor", "talk_speaker_visitor");
+  setText("opt-resident", "talk_speaker_resident");
+  setText("l-talk-lang", "language");
+  setText("l-talk-text", "talk_title");
+  $("talk-text").placeholder = s("talk_placeholder");
+  setText("talk-mic", "talk_mic");
+  setText("talk-translate", "talk_translate");
+  setText("talk-speak", "talk_speak");
+  setText("talk-send", "talk_send");
   $("lang-toggle").textContent = state.lang === "vi" ? "VI" : "EN";
   const bToggle = $("bilingual-toggle");
   if (bToggle) {
@@ -176,9 +211,62 @@ function renderAlert(eventId, triage, why, childCaption) {
   $("grounding").textContent = s(GROUNDING_KEY[triage.grounding] || "generic");
   $("context").textContent = triage.context_status === "timeout" ? s("context_timeout") : "";
   renderEvidence(triage.evidence);
+  renderVerification(triage);
+  loadTalkTurns(state.currentEventId);
   $("alert").className = `alert ${URGENCY_CLASS(triage.urgency || 0)}`;
   speak(caption);
   announce(caption);
+}
+
+function renderVerification(triage) {
+  const status = triage.verification_status || "no_claim";
+  const box = $("verification");
+  if (status === "no_claim") {
+    box.classList.add("hidden");
+  } else {
+    box.classList.remove("hidden");
+    $("verification-badge").textContent = s(VERIFICATION_KEY[status] || "verification_no_claim");
+    $("risk-badge").textContent = s(RISK_KEY[triage.risk_level || "low"] || "risk_low");
+  }
+  const challenge = $("challenge");
+  const question = state.lang === "vi" ? triage.challenge_question_vi : triage.challenge_question_en;
+  if (question) {
+    challenge.textContent = question;
+    challenge.classList.remove("hidden");
+  } else {
+    challenge.textContent = "";
+    challenge.classList.add("hidden");
+  }
+  const memory = $("memory");
+  if (triage.memory_action) {
+    memory.classList.remove("hidden");
+    $("memory-text").textContent =
+      state.lang === "vi" ? triage.memory_basis_vi || "" : triage.memory_basis_en || "";
+    $("memory-use").textContent = s("memory_use_same");
+    $("memory-use").onclick = () => sendReply(triage.memory_action);
+  } else {
+    memory.classList.add("hidden");
+  }
+}
+
+async function loadTalkTurns(eventId) {
+  if (!eventId) return;
+  const data = await (await fetch(`/api/events/${eventId}/door-talk`)).json();
+  const list = $("talk-turns");
+  list.innerHTML = "";
+  (data.turns || []).forEach((turn) => {
+    const item = document.createElement("li");
+    item.textContent = `${turn.speaker} [${turn.lang}]: ${turn.text}`;
+    list.appendChild(item);
+  });
+}
+
+function speakText(text, lang) {
+  if (!window.speechSynthesis || !text) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang === "vi" ? "vi-VN" : "en-US";
+  window.speechSynthesis.speak(utterance);
 }
 
 function renderRaw(msg) {
@@ -197,6 +285,9 @@ function renderRaw(msg) {
   $("context").textContent = "";
   $("latency").textContent = msg.latency_ms != null ? fill("latency", { ms: msg.latency_ms }) : "";
   renderEvidence([]);
+  $("verification").classList.add("hidden");
+  $("challenge").classList.add("hidden");
+  $("memory").classList.add("hidden");
   $("alert").className = "alert u-amber";
   upsertHistory(msg.event_id, { caption: primary, tag: msg.category || "", urgency: 4 });
 }
@@ -563,6 +654,45 @@ function wireControls() {
     $("consent").checked = false;
     $("share").disabled = true;
     loadShares();
+  });
+  $("talk-translate").addEventListener("click", () => {
+    // Preview only — does NOT store a turn.
+    const found = lookupPhrasebook(state.phrasebook, $("talk-text").value);
+    $("talk-translation").textContent = found ? found.text : s("talk_no_translation");
+  });
+  $("talk-speak").addEventListener("click", () => {
+    speakText($("talk-text").value, $("talk-lang").value);
+  });
+  $("talk-mic").addEventListener("click", () => {
+    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Rec) {
+      $("talk-translation").textContent = s("talk_mic_unsupported");
+      return;
+    }
+    const rec = new Rec();
+    rec.lang = $("talk-lang").value === "vi" ? "vi-VN" : "en-US";
+    rec.onresult = (event) => {
+      $("talk-text").value = event.results[0][0].transcript;
+    };
+    rec.start();
+  });
+  $("talk-send").addEventListener("click", async () => {
+    if (!state.currentEventId) {
+      $("talk-translation").textContent = s("no_events");
+      return;
+    }
+    const response = await fetch(`/api/events/${state.currentEventId}/door-talk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        speaker: $("talk-speaker").value,
+        text: $("talk-text").value,
+        lang: $("talk-lang").value,
+      }),
+    });
+    $("talk-translation").textContent = response.ok ? s("talk_sent") : s("reply_failed");
+    $("talk-text").value = "";
+    loadTalkTurns(state.currentEventId);
   });
 }
 

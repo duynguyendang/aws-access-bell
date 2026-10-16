@@ -121,6 +121,10 @@ Ring webhook (HMAC)  ──►  AccessBell  ──►  Fire TV / PWA  (Tier 1 ca
 4. **Schedule** — expected windows (door intent) improve grounding; personal calendars stay in
    other MCP servers if you connect them via Alexa+.  
 5. **Protect** — unanswered high-urgency → consented contact; audit trail; revoke works.
+6. **Verify / Remember / Talk** — Gatekeeper checks a visitor's claim against independent
+   evidence (`verified` / `unverified` / `contradiction` + risk + challenge question);
+   Memory suggests the same reply as last time for the same category; Talk stores
+   door turns with a fixed-prompt EN/VI phrasebook only (never fake translation).
 
 ---
 
@@ -140,9 +144,19 @@ Ring webhook (HMAC)  ──►  AccessBell  ──►  Fire TV / PWA  (Tier 1 ca
 - Quick replies: leave package / coming / not now, plus child-friendly “waiting for parent”  
 - Daily personal brief + **consent-driven share** (audit log)  
 - **Consent escalation** (default OFF): *“if nobody answers, tell Lan”* — durable across restarts  
+- **Gatekeeper (anti-scam)** — visitor claims (police / utility / government / pharmacy /
+  package / family) verified against expected windows, calendar, user labels, snapshot;
+  unverified high-stakes claims get risk `high` + a challenge question, never verified
+  by the visitor's own words alone
+- **Memory** — same-as-last-time reply suggestion when the last reply for the device
+  had the same category, with a one-tap “Use same reply” button
+- **Talk (interpreter, honest)** — door turns stored per event; browser mic (Web Speech)
+  + TTS + a fixed-prompt EN/VI phrasebook only; free text shows “translation not
+  available”, never a fake translation
 - **Mock mode** — full demo without Ring hardware (`MOCK_MODE=true`)  
 - **Bedrock** via LangChain Converse + structured `TriageResult` (AWS Builder mini)  
-- SQLite or Postgres; Docker / Cloud Run scripts; **292 tests** (SQLite; Postgres when DSN set)
+- SQLite or Postgres; Docker / Cloud Run scripts; **317 tests** collected (284 passed + 33
+  Postgres-skipped without `TEST_POSTGRES_DSN`; SQLite by default)
 
 ---
 
@@ -167,6 +181,7 @@ aws-access-bell/
 │   ├── ring_client.py      # Ring Partner API client (api.amazonvision.com; optional live)
 │   ├── captions.py         # EN/VI presentation strings (single source; TTS-safe)
 │   ├── triage.py           # Tier 1 rules + Tier 2 pipeline; pydantic TriageResult
+│   ├── phrasebook.py       # fixed-prompt EN/VI phrasebook for door talk (exact match only)
 │   ├── escalation.py       # EscalationManager: durable pending + acknowledge/audit
 │   ├── brief.py            # Daily personal brief
 │   ├── mcp_server.py       # MCP tools over Streamable HTTP (JSON-RPC 2.0)
@@ -302,7 +317,7 @@ python -m uvicorn backend.main:app --port 8080
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q        # 292 tests: taxonomy, Ring Partner API v1.1 (HMAC, idempotency), grounding gate, door calendar, Calendar MCP, db (sqlite+postgres), MCP tools, API, consent-share, escalation, OAuth 2.1, captions/a11y, notifier (SNS/SES), LLM factory
+pytest -q        # 317 tests collected (284 passed + 33 Postgres-skipped without TEST_POSTGRES_DSN): taxonomy, Ring Partner API v1.1 (HMAC, idempotency), grounding gate, gatekeeper verification, memory, door talk, door calendar, Calendar MCP, db (sqlite+postgres), MCP tools, API, consent-share, escalation, OAuth 2.1, captions/a11y, notifier (SNS/SES), LLM factory
 # Postgres path locally: TEST_POSTGRES_DSN=postgresql://user:pw@host/db pytest -q
 # Container check:      scripts/smoke_docker.sh [image]
 ```
@@ -603,6 +618,9 @@ Drive the whole thing with one command (beats, waits, and the measured proof for
 | Tier 1 fast captions + Tier 2 grounded triage (Bedrock / stub) | ✅ |
 | Fire TV / PWA web UI (SSE, D-pad, EN/VI) | ✅ |
 | AccessBell MCP (11 door tools, Streamable HTTP) | ✅ |
+| Gatekeeper claim verification (verified / unverified / contradiction + risk + challenge) | ✅ |
+| Memory same-as-last-time reply suggestion | ✅ |
+| Talk: door turns + fixed-prompt EN/VI phrasebook (no fake translation) | ✅ |
 | Consent escalation, audit, quick replies, daily brief | ✅ |
 | Evidence gate status + why-line; door calendar `list`/`clear` | ✅ |
 | Calendar MCP join (J2, optional); local stub for demo | ✅ |

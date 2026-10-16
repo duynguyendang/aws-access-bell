@@ -225,6 +225,8 @@ class MCPServer:
         detail = self._alert(event, json.loads(event.get("triage_json") or "{}"))
         detail["raw"] = json.loads(event.get("raw_json") or "{}")
         detail["labels"] = self._db.labels_for_event(int(args["event_id"]))
+        list_turns = getattr(self._db, "list_door_turns", None)
+        detail["door_turns"] = list_turns(int(args["event_id"])) if list_turns is not None else []
         return detail
 
     def _get_context_snapshot(self, args: dict) -> dict:
@@ -346,6 +348,16 @@ class MCPServer:
             "caption_vi": (triage or {}).get("caption_vi"),
             "evidence": (triage or {}).get("evidence"),
             "grounding": (triage or {}).get("grounding"),
+            # Gatekeeper + Memory surface through the existing MCP payload
+            # (no new tool): clients read verification / memory from triage.
+            "verification_status": (triage or {}).get("verification_status", "no_claim"),
+            "risk_level": (triage or {}).get("risk_level", "low"),
+            "claimed_identity": (triage or {}).get("claimed_identity", ""),
+            "challenge_question_en": (triage or {}).get("challenge_question_en", ""),
+            "challenge_question_vi": (triage or {}).get("challenge_question_vi", ""),
+            "memory_action": (triage or {}).get("memory_action", ""),
+            "memory_basis_en": (triage or {}).get("memory_basis_en", ""),
+            "memory_basis_vi": (triage or {}).get("memory_basis_vi", ""),
         }
 
     @staticmethod

@@ -105,6 +105,40 @@ QUIET = {
     },
 }
 
+MEMORY_CATEGORY = {
+    "MED_DELIVERY": {"en": "medicine delivery", "vi": "giao thuốc"},
+    "PACKAGE_DELIVERY": {"en": "package delivery", "vi": "giao hàng"},
+    "FAMILY_VISITOR": {"en": "family visit", "vi": "người thân"},
+    "UNKNOWN_VISITOR": {"en": "unknown visitor", "vi": "khách lạ"},
+    "MOTION_ANOMALY": {"en": "motion", "vi": "chuyển động"},
+}
+
+MEMORY_ACTION = {
+    "leave_at_door": {"en": "Leave package", "vi": "Để gói hàng ở cửa"},
+    "coming": {"en": "I am coming", "vi": "Tôi ra ngay"},
+    "not_now": {"en": "Not now", "vi": "Lúc khác"},
+    "waiting_for_parent": {"en": "Waiting for parent", "vi": "Đợi bố mẹ"},
+}
+
+CHALLENGE = {
+    "en": "Ask for order number / ID and callback number. Do not open.",
+    "vi": "Hỏi mã đơn hàng / giấy tờ và số gọi lại. Đừng mở cửa.",
+}
+
+MEMORY_BASIS = {
+    "en": "Last time for {category} you chose: {action}.",
+    "vi": "Lần trước với {category} bạn đã chọn: {action}.",
+}
+
+PHRASEBOOK = [
+    ("Who are you?", "Bạn là ai?"),
+    ("Who are you here to see?", "Bạn đến gặp ai?"),
+    ("Do you have an appointment?", "Bạn có hẹn trước không?"),
+    ("What is your order number?", "Mã đơn hàng của bạn là gì?"),
+    ("Please wait a moment.", "Vui lòng đợi một chút."),
+    ("Please leave it at the door.", "Vui lòng để ở cửa."),
+]
+
 UI = {
     "en": {
         "app_title": "AccessBell door alerts",
@@ -162,6 +196,26 @@ UI = {
         "fixture_doorbell_unknown": "Unknown Visitor",
         "fixture_motion_only": "Motion",
         "fixture_motion_night": "Night Motion",
+        "verification_verified": "Verified",
+        "verification_unverified": "Unverified",
+        "verification_contradiction": "Contradiction — check details",
+        "verification_no_claim": "No claim",
+        "risk_low": "Risk: low",
+        "risk_medium": "Risk: medium",
+        "risk_high": "Risk: high",
+        "memory_use_same": "Use same reply",
+        "talk_title": "Talk to visitor",
+        "talk_speaker": "Speaker",
+        "talk_speaker_visitor": "Visitor",
+        "talk_speaker_resident": "Resident",
+        "talk_placeholder": "Type what to say…",
+        "talk_send": "Send",
+        "talk_mic": "Mic",
+        "talk_speak": "Speak",
+        "talk_translate": "Translate (fixed prompts only)",
+        "talk_no_translation": "No fixed-prompt translation for this text.",
+        "talk_mic_unsupported": "Mic not supported in this browser — type instead.",
+        "talk_sent": "Message sent",
     },
     "vi": {
         "app_title": "Cảnh báo cửa AccessBell",
@@ -219,6 +273,26 @@ UI = {
         "fixture_doorbell_unknown": "Khách lạ",
         "fixture_motion_only": "Chuyển động",
         "fixture_motion_night": "Chuyển động đêm",
+        "verification_verified": "Đã xác minh",
+        "verification_unverified": "Chưa xác minh",
+        "verification_contradiction": "Mâu thuẫn — kiểm tra lại",
+        "verification_no_claim": "Không có tuyên bố",
+        "risk_low": "Rủi ro: thấp",
+        "risk_medium": "Rủi ro: trung bình",
+        "risk_high": "Rủi ro: cao",
+        "memory_use_same": "Dùng trả lời cũ",
+        "talk_title": "Nói chuyện với khách",
+        "talk_speaker": "Người nói",
+        "talk_speaker_visitor": "Khách",
+        "talk_speaker_resident": "Người nhà",
+        "talk_placeholder": "Nhập câu muốn nói…",
+        "talk_send": "Gửi",
+        "talk_mic": "Mic",
+        "talk_speak": "Đọc",
+        "talk_translate": "Dịch (chỉ câu mẫu)",
+        "talk_no_translation": "Câu này không có bản dịch mẫu.",
+        "talk_mic_unsupported": "Trình duyệt không hỗ trợ mic — hãy gõ tay.",
+        "talk_sent": "Đã gửi tin nhắn",
     },
 }
 

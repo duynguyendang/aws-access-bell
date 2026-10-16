@@ -18,7 +18,9 @@ class RingClient:
         self._token = token
         self._base = base_url.rstrip("/")
         self._oauth = oauth_url.rstrip("/")
-        self._http = httpx.Client(timeout=10.0)
+        # Do not inherit proxy env: httpx crashes on malformed NO_PROXY
+        # (e.g. "[::1]"); Ring API calls go direct.
+        self._http = httpx.Client(timeout=10.0, trust_env=False)
 
     @property
     def configured(self) -> bool:

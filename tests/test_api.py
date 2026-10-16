@@ -251,6 +251,7 @@ def test_ui_strings_and_advisor_endpoints(client):
     strings = client.get("/api/ui-strings?lang=vi").json()
     assert strings["language"] == "vi"
     assert strings["strings"]["stop_escalation"]
+    assert all(entry["en"] and entry["vi"] for entry in strings["phrasebook"])
     advise = client.get("/api/advise").json()
     assert advise["read_only"] is True and advise["auto_write"] is False
     assert isinstance(advise["suggestions"], list)

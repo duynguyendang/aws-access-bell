@@ -26,11 +26,24 @@ def check_tool_catalog() -> list[str]:
     architecture = _read("docs/ARCHITECTURE.md")
     if f"{count} tools" not in readme:
         problems.append(f"README.md should mention '{count} tools'")
-    for stale in (f"{count - 1} tools", f"{count + 1} tools"):
+    for stale in (
+        f"{count - 1} tools",
+        f"{count + 1} tools",
+        f"{count - 1} door tools",
+        f"{count + 1} door tools",
+    ):
         if stale in readme:
             problems.append(f"README.md has stale '{stale}'")
         if stale in architecture:
             problems.append(f"docs/ARCHITECTURE.md has stale '{stale}'")
+    # Catch any other stale count, e.g. "All **8** AccessBell MCP tools".
+    for label, text in (("README.md", readme), ("docs/ARCHITECTURE.md", architecture)):
+        for match in re.finditer(r"(\d+)\s+door tools", text):
+            if int(match.group(1)) != count:
+                problems.append(f"{label} has stale '{match.group(0)}'")
+        for match in re.finditer(r"\*\*(\d+)\*\*[^\n|]*MCP tools", text):
+            if int(match.group(1)) != count:
+                problems.append(f"{label} has stale '{match.group(0)}'")
     return problems
 
 

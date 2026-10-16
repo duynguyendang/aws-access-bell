@@ -198,6 +198,50 @@ class Database:
                 out.append({"label": label})
         return out
 
+    def last_reply_for_device(self, device_id: str) -> dict | None:
+        """Most recent quick-reply for a device, with that event's category.
+
+        Returns {"action", "category", "event_id"} or None. Only reply
+        actions count; confirm labels and other labels are ignored.
+        """
+        if not device_id:
+            return None
+        with self._write() as conn:
+            row = conn.execute(
+                "SELECT l.label AS action, l.event_id AS event_id, e.triage_json AS triage_json "
+                "FROM labels l JOIN events e ON e.id = l.event_id "
+                "WHERE e.device_id=? AND l.label IN (?,?,?,?) ORDER BY l.id DESC LIMIT 1",
+                (device_id, "leave_at_door", "coming", "not_now", "waiting_for_parent"),
+            ).fetchone()
+        if row is None:
+            return None
+        row = dict(row)
+        try:
+            category = (json.loads(row.get("triage_json") or "{}") or {}).get("category")
+        except (TypeError, ValueError):
+            category = None
+        return {"action": row["action"], "category": category, "event_id": row["event_id"]}
+
+    def add_door_turn(self, event_id: int, speaker: str, text: str, lang: str) -> int:
+        """Store one door-talk turn. Validates speaker / lang / non-empty text."""
+        if speaker not in {"visitor", "resident"}:
+            raise ValueError(f"speaker must be visitor|resident, got {speaker!r}")
+        if lang not in {"en", "vi"}:
+            raise ValueError(f"lang must be en|vi, got {lang!r}")
+        if not (text or "").strip():
+            raise ValueError("text must not be empty")
+        return self._insert(
+            "INSERT INTO door_turns (event_id, speaker, text, lang) VALUES (?,?,?,?)",
+            (event_id, speaker, text.strip(), lang),
+        )
+
+    def list_door_turns(self, event_id: int) -> list[dict]:
+        with self._write() as conn:
+            rows = conn.execute(
+                "SELECT * FROM door_turns WHERE event_id=? ORDER BY id", (event_id,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def log_share(self, brief_date: str, recipient: str, message: str) -> int:
         return self._insert(
             "INSERT INTO share_log (brief_date, recipient, message) VALUES (?,?,?)",
@@ -249,6 +293,10 @@ class Database:
             # on schemas that predate the ON DELETE CASCADE foreign keys. escalation_log
             # keeps its audit trail; labels/escalation_pending must not outlive events.
             conn.execute(f"DELETE FROM labels WHERE event_id IN (SELECT id FROM events WHERE {age})", stale)
+            conn.execute(
+                f"DELETE FROM door_turns WHERE event_id IN (SELECT id FROM events WHERE {age})",
+                stale,
+            )
             conn.execute(
                 f"DELETE FROM escalation_pending WHERE event_id IN (SELECT id FROM events WHERE {age})",
                 stale,

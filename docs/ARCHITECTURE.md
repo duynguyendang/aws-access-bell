@@ -201,6 +201,7 @@ double-notify.
 | `ring_client.py` | Devices/history REST (live mode, httpx; `api.amazonvision.com`) |
 | `captions.py` | EN/VI presentation strings (single source); TTS-safety + length helpers |
 | `triage.py` | Tier 1 rules + Tier 2 `EnrichmentPipeline`; pydantic `TriageResult` |
+| `phrasebook.py` | Fixed-prompt EN/VI phrasebook for door talk (exact match; never a free-text translation) |
 | `llm/__init__.py` | `build_llm(settings)` provider factory |
 | `llm/base.py` | `TriageLLM` protocol |
 | `llm/stub.py` | Deterministic offline provider (no deps) |
@@ -232,6 +233,7 @@ double-notify.
 | `/api/events/{id}` | GET | Single-event read-back (verify state written by another path) |
 | `/api/events/{id}/reply` | POST | Quick reply (`leave_at_door`/`coming`/`not_now`/`waiting_for_parent`) |
 | `/api/events/{id}/confirm` | POST | Ground-truth label |
+| `/api/events/{id}/door-talk` | GET/POST | Door-talk turns: list / store one turn; fixed-prompt phrasebook preview (never free-text translation) |
 | `/api/expected` | GET/POST | Door calendar: list / add expected-context windows |
 | `/api/expected/{id}` | DELETE | Revoke a door-intent window |
 | `/api/brief[?date&lang]` | GET | Daily summary (EN/VI) |
@@ -241,7 +243,7 @@ double-notify.
 | `/api/share/{id}/revoke` | POST | Revoke a share (append-only audit row) |
 | `/api/policy` | GET | Active `policy.yaml` version + SHA |
 | `/api/metrics` | GET | Fixture-derived counters: status, grounding, escalation, latency timers |
-| `/api/ui-strings` | GET | UI labels EN/VI (single source in `captions.py`) |
+| `/api/ui-strings` | GET | UI labels + fixed-prompt door-talk phrasebook EN/VI (single source in `captions.py`) |
 | `/api/advise` | GET | Read-only suggestions (never auto-writes) |
 | `/api/escalation/stop` | POST | Acknowledge + stop a pending escalation from the UI |
 
@@ -294,6 +296,10 @@ escalation_log(
 escalation_pending(
   event_id, fire_at, timeout_seconds, created_at
 )   -- durable timer: survives restart; claimed (deleted) exactly once when fired
+
+door_turns(
+  id, event_id, speaker, text, lang, created_at
+)   -- door talk: speaker visitor|resident, lang en|vi; "translation" is a fixed-prompt phrasebook only
 ```
 
 `events.event_hash` is a **unique index** (portable, NULLs allowed): Ring `meta.request_id` is hashed
@@ -621,7 +627,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (292 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (317 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 
@@ -646,6 +652,9 @@ variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on S
 | `tests/test_captions.py` | Accessibility guardrails: EN+VI present, TTS-safe, length-bounded, Partner API kinds mapped, VI door-word regression, brief templates in both languages |
 | `tests/test_storage_dialects.py` | SQL translation per dialect (`?`→`%s`, `now()`, `RETURNING id`, DROP … CASCADE) |
 | `tests/test_llm_factory.py` | Provider factory (stub/ollama), unknown provider, missing API key (skipped if no langchain) |
+| `tests/test_gatekeeper.py` | Claim verification: verified / unverified high-stakes / unverified medium / contradiction / no claim |
+| `tests/test_memory.py` | Same-as-last-time suggestion on same category, empty on different category / no history |
+| `tests/test_door_talk.py` | Door-talk API (store/list/validation/404), phrasebook exact-match + free-text rejection |
 
 | Requirement (README) | Verified by |
 |---|---|

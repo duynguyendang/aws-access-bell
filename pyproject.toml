@@ -13,6 +13,7 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/ablation_evidence.py" = ["E402"]
+"tests/run_e2e.py" = ["E402"]
 
 [tool.coverage.run]
 source = ["backend"]
