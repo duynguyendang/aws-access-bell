@@ -213,6 +213,7 @@ double-notify.
 | `metrics.py` | In-memory latency histograms + counters for `/api/metrics` (disposable) |
 | `policy.py` | `policy.yaml` version + SHA, cited by escalation audit and `/api/policy` |
 | `notifier.py` | Pluggable announce/SMS (no-op in mock) |
+| `aws_events.py` | Optional EventBridge publisher for triaged events (off unless `EVENTBRIDGE_BUS_NAME`; failures never block the door flow) |
 | `db.py` | Repository facade; picks dialect from `DB_URL` |
 | `storage/sqlite.py` / `storage/postgres.py` | Dialects: connect, SQL translation, schema, insert-id |
 | `schema.sqlite.sql` / `schema.postgres.sql` | DDL per dialect |
@@ -246,9 +247,6 @@ double-notify.
 | `/api/ui-strings` | GET | UI labels + fixed-prompt door-talk phrasebook EN/VI (single source in `captions.py`) |
 | `/api/advise` | GET | Read-only suggestions (never auto-writes) |
 | `/api/escalation/stop` | POST | Acknowledge + stop a pending escalation from the UI |
-
-`/api/*` is gated by `API_TOKEN` when `API_AUTH_DISABLED=false` (Bearer, `?token=`, or cookie);
-`/webhooks/ring` uses HMAC and `/mcp` uses OAuth/JWT or the demo token.
 | `/api/prefs` | GET/POST | Accessibility profile (`caption`/`voice`/`both`) |
 | `/api/escalation/contacts` | GET/POST | Trusted contacts (user-added = consent); `DELETE .../{id}` revokes |
 | `/api/escalation/policy` | GET/POST | `enabled`, `timeout_seconds`, `min_urgency` (default off / 90s / 7) |
@@ -256,6 +254,9 @@ double-notify.
 | `/mcp` | POST | MCP JSON-RPC over Streamable HTTP (OAuth 2.1 JWT, or `MCP_HTTP_TOKEN` in demo mode) |
 | `/.well-known/oauth-protected-resource` | GET | RFC 9728 discovery (resource URI, AS, scopes) |
 | `/api/ring/devices` | GET | Live Ring devices (only when token configured) |
+
+`/api/*` is gated by `API_TOKEN` when `API_AUTH_DISABLED=false` (Bearer, `?token=`, or cookie);
+`/webhooks/ring` uses HMAC and `/mcp` uses OAuth/JWT or the demo token.
 
 ### 4.3 Data model (SQLite / Postgres)
 
@@ -627,7 +628,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (317 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (330 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 
@@ -637,13 +638,14 @@ variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on S
 | `tests/test_triage.py` | Tier 1 mapping (`button_press`/`motion_detected` → doorbell/motion evidence), pydantic validation (confidence, evidence), stub categorization, grounding status (grounded/generic/demoted), calendar grounding |
 | `tests/test_calendar.py` | Calendar MCP stub (`create_event`/`list_events`), tool result parsing, client JSON-RPC call, env-gated factory |
 | `tests/test_slo.py` | Tier 1 never calls the LLM, calendar timeout follows `CONTEXT_BUDGET_MS`, **enrich budget hard timeout**, budget/timeout metrics, fail-open, `context_status` |
-| `tests/test_util.py` | Rate-limiter key pruning; quiet-hours window wrap |
+| `tests/test_util.py` | Rate-limiter key pruning; quiet-hours window wrap; **X-Forwarded-For trust** (empty default ignores the header, exact IP/CIDR allowlist, spoofed header from untrusted peer ignored) |
 | `tests/test_adversarial.py` | Forged/missing signature rejected, inventing LLM demoted, LLM failure → Tier 1, single-use escalation claim |
-| `tests/test_scripts.py` | Ablation arms show grounding contribution; docs-consistency checks pass |
+| `tests/test_scripts.py` | Ablation arms show grounding contribution; docs-consistency checks pass; evidence scripts (`eval_triage`, `measure_latency`) callable; eval covers all 5 categories with ≥40 cases |
+| `tests/test_aws_events.py` | EventBridge publisher: disabled without bus name, entry shape (source/detail), AWS failures never raise |
 | `tests/test_docker_context.py` | Every `COPY` source in the Dockerfile exists and is not excluded by `.dockerignore` |
 | `tests/test_triage_data.py` | Data-driven: taxonomy (5 categories), expected-context windows, quiet-hours motion, child-at-home friend visit, v1.1 `data.attributes` hint, EN/VI captions, generic fallback |
 | `tests/test_webhook.py` | HMAC verify (valid/tampered/dev-mode/`sha256=` prefix), Partner API v1.1 parse, `request_id` idempotency beyond debounce, mock fixtures are v1.1, ingest, debounce window, invalid JSON |
-| `tests/test_db.py` | Expected-window matching, TTL purge, debounce query, labels, prefs, triage persistence |
+| `tests/test_db.py` | Expected-window matching, TTL purge, debounce query, labels, prefs, triage persistence, **interrupted schema self-heal recovery** |
 | `tests/test_mcp_server.py` | All **11** AccessBell MCP tools, JSON-RPC initialize/-32601/-32602, notifications, evidence in detail |
 | `tests/test_api.py` | Full HTTP surface: simulate, webhook+signature (v1.1 envelope, `X-Ring-Signature` alias), quick reply, confirm, brief EN/VI, consent-share+audit, prefs validation, MCP bearer/origin, `MCP_401_WWW_AUTHENTICATE` toggle, SSE broker format |
 | `tests/test_escalation.py` | Safety net: policy off by default, fires after timeout w/ audit, reply stops it (REST+MCP), low-urgency skip, revoked contacts never notified, **pending survives restart**, **at-most-once claim** |

@@ -68,13 +68,30 @@ Retention: `EVENT_TTL_DAYS` (default 30) purged at startup; no video is stored.
 |---|---|---|---|
 | **Local (demo)** | `python -m backend` (honors `PORT`) | SQLite file | nothing else needed |
 | **Docker** | `docker compose up --build` | `dbdata` volume | needs a Docker daemon |
-| **AWS (ECS Fargate + ALB)** | `scripts/deploy_aws.sh [region]` (CDK) | RDS Postgres | Turnkey Fargate, ALB (idle timeout 300s for SSE), Cognito OAuth 2.1, Bedrock IAM |
+| **AWS (ECS Fargate + ALB)** | `scripts/deploy_aws.sh [region]` (CDK) | RDS Postgres | Turnkey Fargate, ALB (idle timeout 300s for SSE), Cognito OAuth 2.1, Bedrock IAM (`LLM_PROVIDER=bedrock`), EventBridge bus, Secrets Manager-generated API/MCP/webhook tokens |
 | **GCP Cloud Run** | `scripts/deploy_cloudrun.sh <project> [region]` | SQLite is ephemeral → use Postgres | scale-to-zero (`min-instances 0`) is safe; REST gated by `API_TOKEN` |
 | **Cloudflare** | Containers (or TLS/Zero Trust in front) | external Postgres | Python does **not** run on Workers |
 | **VM / k8s** | container + `DB_URL` | Postgres | `/health` healthcheck |
 
 Required for MCP over the public internet: **HTTPS + OAuth 2.1**. During development, use
 `cloudflared tunnel` to get a public URL.
+
+### 3b. Portability matrix
+
+The *stack* is portable; the *integration surface* is Amazon. AWS-native pieces (Bedrock, Cognito)
+are options, not requirements — the same image runs on GCP or a laptop with `LLM_PROVIDER=stub`.
+
+| Layer | Portable? | Choices (wired in code, not aspirational) |
+|---|---|---|
+| Compute | yes | local `uvicorn` · Docker Compose · GCP Cloud Run · AWS ECS Fargate (CDK) · any VM/k8s |
+| LLM | yes | `stub` · `ollama` · `openai` · `anthropic` · `google` · `bedrock` (AWS-native, default in CDK) |
+| Identity (MCP OAuth 2.1) | yes | Okta · Auth0 · Keycloak · Cloudflare Access · Cognito (AWS-native) · local token |
+| Data | yes | SQLite (default) · Postgres / Cloud SQL / RDS (same code, dialect swap) |
+| Device integration | deliberately Amazon | Ring webhook (HMAC) · Fire TV caption surface (SSE) · Alexa+ MCP tools (spec 2025-11-25+) |
+
+Cloudflare note: the Python FastAPI app does **not** run on Workers as-is; use Cloudflare Containers
+or keep Cloudflare for TLS/Zero Trust in front of the app. Bedrock needs AWS credentials regardless
+of where the app runs.
 
 ---
 
@@ -97,7 +114,7 @@ Required for MCP over the public internet: **HTTPS + OAuth 2.1**. During develop
 |---|---|
 | Runtime | `APP_ENV`, `PORT`, `WEB_DIR`, `LOG_LEVEL`, `MOCK_MODE`, `FORWARDED_ALLOW_IPS` |
 | Storage | `DB_URL` (or `DB_PATH`) |
-| LLM | `LLM_PROVIDER`, `LLM_MODEL`, `*_API_KEY`, `BEDROCK_MODEL_ID`, `AWS_REGION`, `LLM_TIMEOUT_SECONDS` |
+| LLM / AWS | `LLM_PROVIDER`, `LLM_MODEL`, `*_API_KEY`, `BEDROCK_MODEL_ID`, `AWS_REGION`, `LLM_TIMEOUT_SECONDS`, `EVENTBRIDGE_BUS_NAME` |
 | API auth (REST/SSE) | `API_AUTH_DISABLED`, `API_TOKEN` |
 | MCP / auth | `MCP_HTTP_TOKEN`, `MCP_ORIGIN`, `OAUTH_ISSUER`, `OAUTH_JWKS_URL`, `OAUTH_AUDIENCE`, `OAUTH_CLIENT_IDS`, `OAUTH_SCOPE_PREFIX`, `MCP_RESOURCE`, `OAUTH_REQUIRE_RESOURCE`, `CF_ACCESS_JWT_ENABLED`, `MCP_401_WWW_AUTHENTICATE` |
 | Outbound notifications | `NOTIFIER_PROVIDER`, `SNS_TOPIC_ARN`, `SES_SENDER_EMAIL`, `ANNOUNCE_ENABLED` |
@@ -108,6 +125,18 @@ Required for MCP over the public internet: **HTTPS + OAuth 2.1**. During develop
 
 Secrets: **GCP Secret Manager** (`--set-secrets`), **AWS SSM/Secrets Manager**, **Cloudflare**
 (`wrangler secret put`), or a local `.env` (never committed).
+
+`FORWARDED_ALLOW_IPS` semantics: empty (default) ignores `X-Forwarded-For` entirely and rate-limits
+by socket peer; a comma-separated list of exact IPs or CIDRs makes the app trust `X-Forwarded-For`
+**only from those peers** (the CDK stack passes the VPC CIDR so ALB traffic resolves the real client
+IP); `*` trusts any peer and should be used only behind a proxy you control.
+
+The CDK stack generates `API_TOKEN`, `MCP_HTTP_TOKEN` and `RING_WEBHOOK_SECRET` in Secrets Manager
+(no default secrets ship in code). Read them after deploy:
+
+```bash
+aws secretsmanager get-secret-value --secret-id <ApiTokenSecretArn output> --query SecretString --output text
+```
 
 ---
 
@@ -127,9 +156,10 @@ history, escalation contacts and share actions are open to anyone who has the UR
 
 ## 6. CI/CD
 
-`​.github/workflows/ci.yml` — three jobs: `pytest` (SQLite) · `pytest` (Postgres service via
-`TEST_POSTGRES_DSN`) · `docker build` + `scripts/smoke_docker.sh` (health → simulate → MCP →
-discovery).
+`​.github/workflows/ci.yml` — four jobs: `test` (SQLite pytest + docs-consistency + ablation + labeled triage eval + latency
+smoke) · `a11y` (pa11y WCAG2AA on `/` and `/?lang=vi` against a live app with a simulated alert) ·
+`test-postgres` (same suite with `TEST_POSTGRES_DSN`) · `docker` (build + `scripts/smoke_docker.sh`:
+health → simulate → MCP → discovery).
 
 ---
 

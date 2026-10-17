@@ -52,7 +52,8 @@ Open your browser to:
 
 #### Fire TV D-Pad Remote Simulation
 The web interface includes built-in TV remote navigation:
-- `Arrow Keys` (`Up`, `Down`, `Left`, `Right`): Navigate focus between quick-reply targets.
+- `Arrow Keys` (`Up`, `Down`, `Left`, `Right`): Navigate focus between quick-reply targets. While a
+  text input is focused, Left/Right keep the caret and Up/Down still navigate.
 - `Enter` / `Space`: Select highlighted action (`leave_at_door`, `coming`, `not_now`, `waiting_for_parent`).
 - Visual indicator: Active element displays a high-contrast focus outline conforming to TV accessibility guidelines (minimum target size ≥ 44px).
 
@@ -69,6 +70,9 @@ curl -X POST "http://localhost:8080/api/simulate?fixture=doorbell_package_window
 
 # Unknown visitor
 curl -X POST "http://localhost:8080/api/simulate?fixture=doorbell_unknown"
+
+# Visitor claiming to be police (Gatekeeper demo: unverified + challenge question)
+curl -X POST "http://localhost:8080/api/simulate?fixture=doorbell_police_claim"
 
 # Night motion
 curl -X POST "http://localhost:8080/api/simulate?fixture=motion_night"
