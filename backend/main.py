@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .aws_events import EventPublisher
 from .brief import build_daily_summary
 from .calendar_mcp import build_calendar_client
 from .captions import child_captions, why_text
@@ -29,7 +30,7 @@ from .phrasebook import lookup as phrasebook_lookup
 from .phrasebook import pairs as phrasebook_pairs
 from .policy import policy_ref
 from .triage import EnrichmentPipeline, Tier1Rules
-from .util import RateLimiter
+from .util import RateLimiter, client_ip
 from .webhook import RingWebhookHandler, WebhookError, parse_ring_payload, request_hash, verify_ring_signature
 
 logger = logging.getLogger("accessbell")
@@ -52,6 +53,7 @@ pipeline = EnrichmentPipeline(
 webhook_handler = RingWebhookHandler(db, debounce_seconds=settings.debounce_seconds)
 notifier = Notifier(settings)
 rate_limiter = RateLimiter(settings.rate_limit_per_minute)
+event_publisher = EventPublisher(settings)
 
 
 class StreamBroker:
@@ -181,11 +183,9 @@ def _oauth_challenge(request: Request) -> dict:
 
 
 def _rate_limited(request: Request):
-    client_ip = request.client.host if request.client else "unknown"
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for and (settings.forwarded_allow_ips == "*" or client_ip in settings.forwarded_allow_ips.split(",")):
-        client_ip = forwarded_for.split(",")[0].strip()
-    if not rate_limiter.allow(client_ip):
+    host = request.client.host if request.client else "unknown"
+    key = client_ip(host, request.headers.get("x-forwarded-for"), settings.forwarded_allow_ips)
+    if not rate_limiter.allow(key):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
 
 
@@ -314,6 +314,7 @@ async def _enrich_async(event_id: int):
         }
     )
     escalation.schedule(event_id, triage)
+    event_publisher.publish(stored, triage)
     metrics.observe("enrich_ms", (time.perf_counter() - started) * 1000.0)
 
 

@@ -5,9 +5,9 @@ from aws_cdk import (
     Stack,
     aws_cognito as cognito,
     aws_ec2 as ec2,
-    aws_ecr_assets as ecr_assets,
     aws_ecs as ecs,
     aws_elasticloadbalancingv2 as elbv2,
+    aws_events as events,
     aws_iam as iam,
     aws_logs as logs,
     aws_rds as rds,
@@ -50,6 +50,21 @@ class AccessBellStack(Stack):
                 exclude_punctuation=True,
             ),
         )
+
+        def _token_secret(ident: str) -> secretsmanager.Secret:
+            return secretsmanager.Secret(
+                self,
+                ident,
+                generate_secret_string=secretsmanager.SecretStringGenerator(
+                    secret_string_template="{}",
+                    generate_string_key="token",
+                    exclude_punctuation=True,
+                ),
+            )
+
+        api_token_secret = _token_secret("AccessBellApiToken")
+        mcp_token_secret = _token_secret("AccessBellMcpToken")
+        webhook_secret = _token_secret("AccessBellRingWebhookSecret")
 
         db_security_group = ec2.SecurityGroup(
             self,
@@ -118,6 +133,8 @@ class AccessBellStack(Stack):
 
         cluster = ecs.Cluster(self, "AccessBellCluster", vpc=vpc)
 
+        event_bus = events.EventBus(self, "AccessBellEventBus")
+
         task_role = iam.Role(
             self,
             "AccessBellTaskRole",
@@ -144,6 +161,7 @@ class AccessBellStack(Stack):
                 resources=["*"],
             )
         )
+        event_bus.grant_put_events_to(task_role)
 
         task_def = ecs.FargateTaskDefinition(
             self,
@@ -181,15 +199,13 @@ class AccessBellStack(Stack):
                 "POSTGRES_PORT": str(db_port),
                 "POSTGRES_USER": "accessbell",
                 "POSTGRES_DB": "accessbell",
-                "API_TOKEN": "accessbell-test-api-token",
                 "API_AUTH_DISABLED": "false",
-                "MCP_HTTP_TOKEN": "accessbell-mcp-test-token",
                 "RING_WEBHOOK_ENABLED": "true",
-                "RING_WEBHOOK_SECRET": "test_webhook_secret",
-                "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "stub"),
+                "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "bedrock"),
                 "LLM_MODEL": os.getenv("LLM_MODEL", "us.amazon.nova-lite-v1:0"),
                 "NOTIFIER_PROVIDER": "sns",
-                "FORWARDED_ALLOW_IPS": "*",
+                "FORWARDED_ALLOW_IPS": vpc.vpc_cidr_block,
+                "EVENTBRIDGE_BUS_NAME": event_bus.event_bus_name,
                 "OAUTH_JWKS_URL": jwks_url,
                 "OAUTH_ISSUER": issuer_url,
                 "OAUTH_CLIENT_IDS": app_client.user_pool_client_id,
@@ -200,6 +216,9 @@ class AccessBellStack(Stack):
                 "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(
                     db_secret, "password"
                 ),
+                "API_TOKEN": ecs.Secret.from_secrets_manager(api_token_secret, "token"),
+                "MCP_HTTP_TOKEN": ecs.Secret.from_secrets_manager(mcp_token_secret, "token"),
+                "RING_WEBHOOK_SECRET": ecs.Secret.from_secrets_manager(webhook_secret, "token"),
             },
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix="accessbell",
@@ -273,3 +292,7 @@ class AccessBellStack(Stack):
         CfnOutput(self, "UserPoolId", value=user_pool.user_pool_id)
         CfnOutput(self, "CognitoClientId", value=app_client.user_pool_client_id)
         CfnOutput(self, "JwksUrl", value=jwks_url)
+        CfnOutput(self, "EventBusName", value=event_bus.event_bus_name)
+        CfnOutput(self, "ApiTokenSecretArn", value=api_token_secret.secret_arn)
+        CfnOutput(self, "McpTokenSecretArn", value=mcp_token_secret.secret_arn)
+        CfnOutput(self, "RingWebhookSecretArn", value=webhook_secret.secret_arn)
