@@ -46,3 +46,6 @@ class PostgresDialect:
 
     def drop_table_sql(self, table: str) -> str:
         return f"DROP TABLE IF EXISTS {table} CASCADE"
+
+    def recover_schema(self, conn) -> None:
+        return

@@ -58,6 +58,7 @@ class Database:
     def init_schema(self):
         script = (SCHEMA_DIR / f"schema.{self._dialect.name}.sql").read_text(encoding="utf-8")
         with self._write() as conn:
+            self._dialect.recover_schema(conn)
             conn.executescript(script)
             self._conn.commit()
 

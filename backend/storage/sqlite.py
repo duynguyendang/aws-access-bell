@@ -41,3 +41,21 @@ class SqliteDialect:
 
     def drop_table_sql(self, table: str) -> str:
         return f"DROP TABLE IF EXISTS {table}"
+
+    def recover_schema(self, conn) -> None:
+        def tables() -> set:
+            return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+
+        for orphan in ("escalation_pending_legacy", "escalation_pending_fix"):
+            if orphan not in tables():
+                continue
+            if "escalation_pending" not in tables():
+                conn.execute(f"ALTER TABLE {orphan} RENAME TO escalation_pending")
+                continue
+            if "events" in tables():
+                conn.execute(
+                    "INSERT OR IGNORE INTO escalation_pending (event_id, fire_at, timeout_seconds, created_at) "
+                    f"SELECT ep.event_id, ep.fire_at, ep.timeout_seconds, ep.created_at FROM {orphan} ep "
+                    "WHERE ep.event_id IN (SELECT id FROM events)"
+                )
+            conn.execute(f"DROP TABLE {orphan}")

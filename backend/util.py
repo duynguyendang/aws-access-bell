@@ -1,3 +1,4 @@
+import ipaddress
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -37,6 +38,37 @@ def is_quiet_hours(value: str, start: str, end: str) -> bool:
     if start_hour < end_hour:
         return start_hour <= hour < end_hour
     return hour >= start_hour or hour < end_hour
+
+
+def _matches(host: str, entry: str) -> bool:
+    if not host or not entry:
+        return False
+    if entry == "*":
+        return True
+    if entry == host:
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+        network = ipaddress.ip_network(entry, strict=False)
+    except ValueError:
+        return False
+    return address.version == network.version and address in network
+
+
+def client_ip(host: str, forwarded_for: str | None, allow: str) -> str:
+    host = host or "unknown"
+    allow = (allow or "").strip()
+    forwarded_for = (forwarded_for or "").strip()
+    if not allow or not forwarded_for:
+        return host
+    if any(_matches(host, entry.strip()) for entry in allow.split(",") if entry.strip()):
+        first = forwarded_for.split(",")[0].strip()
+        try:
+            ipaddress.ip_address(first)
+        except ValueError:
+            return host
+        return first
+    return host
 
 
 class RateLimiter:

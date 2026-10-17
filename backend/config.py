@@ -2,6 +2,17 @@ import os
 from dataclasses import dataclass, field
 
 
+def _load_env_file() -> None:
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv()
+
+
+_load_env_file()
+
+
 def _env(name: str, default: str = "") -> str:
     return os.getenv(name, default)
 
@@ -63,6 +74,7 @@ class Settings:
 
     aws_region: str = field(default_factory=lambda: _env("AWS_REGION", "us-east-1"))
     bedrock_model_id: str = field(default_factory=lambda: _env("BEDROCK_MODEL_ID"))
+    eventbridge_bus_name: str = field(default_factory=lambda: _env("EVENTBRIDGE_BUS_NAME"))
     llm_timeout_seconds: int = field(default_factory=lambda: _int("LLM_TIMEOUT_SECONDS", 5))
     llm_model: str = field(default_factory=lambda: _env("LLM_MODEL"))
     openai_api_key: str = field(default_factory=lambda: _env("OPENAI_API_KEY"))
@@ -100,7 +112,7 @@ class Settings:
 
 
     app_env: str = field(default_factory=lambda: _env("APP_ENV", "development").lower())
-    forwarded_allow_ips: str = field(default_factory=lambda: _env("FORWARDED_ALLOW_IPS", "*"))
+    forwarded_allow_ips: str = field(default_factory=lambda: _env("FORWARDED_ALLOW_IPS", ""))
     notifier_provider: str = field(default_factory=lambda: _env("NOTIFIER_PROVIDER", "log").lower())
     sns_topic_arn: str = field(default_factory=lambda: _env("SNS_TOPIC_ARN"))
     ses_sender_email: str = field(default_factory=lambda: _env("SES_SENDER_EMAIL"))

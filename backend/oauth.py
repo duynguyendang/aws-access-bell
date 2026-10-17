@@ -92,7 +92,7 @@ class OAuthVerifier:
         try:
             signing_key = client.get_signing_key_from_jwt(token)
             # Cognito access tokens do not have 'aud', but have 'client_id'
-            options = {"verify_aud": False} if not audience else {"verify_aud": False}
+            options = {"verify_aud": False}
             payload = jwt.decode(
                 token,
                 signing_key.key,

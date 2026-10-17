@@ -67,3 +67,54 @@ def test_update_triage_status(db):
     event = db.get_event(event_id)
     assert event["status"] == "tier1"
     assert "Someone is at the door" in event["triage_json"]
+
+
+def _pending_row(database, event_id):
+    with database._write() as conn:
+        row = conn.execute(
+            "SELECT event_id, fire_at FROM escalation_pending WHERE event_id=?", (event_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def test_init_schema_recovers_crash_after_pending_rename(tmp_path):
+    from backend.db import Database
+
+    database = Database(f"sqlite:///{tmp_path / 'recover_a.db'}")
+    database.init_schema()
+    event_id = database.insert_event("mock", "d1", "ding", "2026-09-15T10:00:00Z", {})
+    with database._write() as conn:
+        conn.execute(
+            "INSERT INTO escalation_pending (event_id, fire_at, timeout_seconds) VALUES (?,?,?)",
+            (event_id, "2026-09-15T10:01:30Z", 90),
+        )
+        conn.execute("ALTER TABLE escalation_pending RENAME TO escalation_pending_legacy")
+        database._conn.commit()
+    database.init_schema()
+    assert _pending_row(database, event_id)["fire_at"] == "2026-09-15T10:01:30Z"
+    database.close()
+
+
+def test_init_schema_recovers_orphaned_legacy_and_fix_tables(tmp_path):
+    from backend.db import Database
+
+    database = Database(f"sqlite:///{tmp_path / 'recover_b.db'}")
+    database.init_schema()
+    event_id = database.insert_event("mock", "d1", "ding", "2026-09-15T10:00:00Z", {})
+    columns = "(event_id INTEGER PRIMARY KEY, fire_at TEXT NOT NULL, timeout_seconds INTEGER NOT NULL, created_at TEXT)"
+    with database._write() as conn:
+        conn.execute(
+            "INSERT INTO escalation_pending (event_id, fire_at, timeout_seconds) VALUES (?,?,?)",
+            (event_id, "2026-09-15T10:01:30Z", 90),
+        )
+        conn.execute("ALTER TABLE escalation_pending RENAME TO escalation_pending_legacy")
+        conn.execute(f"CREATE TABLE escalation_pending {columns}")
+        conn.execute(f"CREATE TABLE escalation_pending_fix {columns}")
+        database._conn.commit()
+    database.init_schema()
+    assert _pending_row(database, event_id)["fire_at"] == "2026-09-15T10:01:30Z"
+    with database._write() as conn:
+        names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "escalation_pending_legacy" not in names
+    assert "escalation_pending_fix" not in names
+    database.close()
