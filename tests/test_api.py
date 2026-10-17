@@ -158,6 +158,18 @@ def test_brief_counts_events_on_fixture_date(client):
     assert any("Hôm nay" in line or "sự kiện" in line for line in vi["bullets"])
 
 
+def test_door_log_export_is_a_text_artifact(client):
+    client.post("/api/simulate?fixture=doorbell_med")
+    response = client.get("/api/door-log.txt")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "attachment" in response.headers["content-disposition"]
+    assert "AccessBell door log" in response.text
+    assert "MED_DELIVERY" in response.text
+    vi = client.get("/api/door-log.txt?lang=vi")
+    assert "Nhật ký cửa AccessBell" in vi.text
+
+
 def test_share_requires_consent_and_logs(client):
     denied = client.post("/api/share", json={"consent": False, "recipient": "nurse@example.com"})
     assert denied.status_code == 400

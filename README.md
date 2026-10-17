@@ -6,16 +6,27 @@
 [![ci](https://github.com/duynguyendang/aws-access-bell/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/duynguyendang/aws-access-bell/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AccessBell is a companion layer on Ring: it turns a door event into a large, plain-language caption —
-on the TV, the phone, and in Alexa — for deaf, hard-of-hearing, blind, low-vision and
-limited-mobility residents. It is not a new camera and not a caregiver surveillance product.
-The person who lives there stays in control.
+AccessBell is a companion layer on Ring for one resident at a time: a deaf or hard-of-hearing person
+at home who needs to know **who is at the door and whether to trust it** — on the TV, in Alexa, on
+the phone. Low-vision and limited-mobility residents use the same path (voice + remote); the first
+user is specific. It is not a new camera and not a caregiver surveillance product: the person who
+lives there stays in control.
+
+**Meet Mai.** 72, lives alone, hard of hearing. The doorbell rings while she is cooking; the TV shows
+*Someone is at the door* in seconds, names the pharmacy courier with its evidence a moment later,
+and she answers from the remote. That single flow is the product. (Mai is a composite of the
+residents this is built for — no real person's data.)
 
 **The part we are proudest of — the Gatekeeper.** Anyone can say “I'm the police.” AccessBell never
 verifies a visitor claim from the visitor's own words: a claim is checked against independent
 evidence (an expected window the resident created, a user label, a calendar event, a snapshot) and
 comes out `verified`, `unverified`, or `contradiction` — with a risk level and a challenge question.
-Unverified high-stakes claims are never softened into a friendly caption.
+Unverified high-stakes claims are never softened into a friendly caption. The gate exists because
+the claim at the door is a measured attack surface, not a thought experiment: the FTC's Consumer
+Sentinel Data Book 2024 counts 845,806 imposter-scam reports and $2.95B in reported losses, with
+government-impersonation losses alone at $789M (up $171M year over year) — and adults 70+ report
+the highest median losses of any age group
+([FTC, 2024](https://www.ftc.gov/reports/consumer-sentinel-network-data-book-2024)).
 
 ## Try it
 
@@ -23,13 +34,14 @@ Unverified high-stakes claims are never softened into a friendly caption.
 |---|---|
 | **Live demo** | _published with the submission_ <!-- TODO(submission): add the demo URL --> |
 | **3-minute video** | _published with the submission_ <!-- TODO(submission): add the video link --> |
-| **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (`MOCK_MODE` + stub LLM, no cloud needed) |
+| **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
+| **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline test mode: `MOCK_MODE` + `stub`) |
 
 ## Evaluate it in 3 minutes
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                        # **330 tests** (297 pass + 33 Postgres-skipped)
+python -m pytest -q                        # **331 tests** (298 pass + 33 Postgres-skipped)
 python scripts/eval_triage.py              # 42 labeled scenarios: category + Gatekeeper + memory
 python scripts/ablation_evidence.py        # grounding gate ablation (3 arms)
 python scripts/measure_latency.py          # local Tier-1 / enrichment latency (stub)
@@ -40,7 +52,8 @@ curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_med"
 
 What to look at: the alert caption and its **Evidence / Why** line; the Gatekeeper challenge on the
 police claim; the grounding badge (`grounded` / `generic` / `demoted_insufficient_evidence`); the
-`/api/metrics` timers. A recording plan lives in [docs/DEMO.md](docs/DEMO.md).
+`/api/metrics` timers; and **Download door log** — a plain-text artifact of the day's events you can
+keep. A recording plan lives in [docs/DEMO.md](docs/DEMO.md).
 
 ## How it works
 
@@ -82,7 +95,9 @@ EN/VI, child mode, 44 px targets) and **Alexa+ via MCP** (Streamable HTTP, JSON-
 
 ## AWS services
 
-AccessBell is designed for AWS first, but stays testable offline.
+AccessBell runs on AWS by default: the CDK stack deploys it with **Bedrock as the triage model**,
+the EventBridge bus, Cognito OAuth and generated Secrets Manager values. The `stub` provider is the
+offline test mode (deterministic, no credentials), not the product path.
 
 | Service | Role |
 |---|---|

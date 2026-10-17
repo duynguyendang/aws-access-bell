@@ -238,6 +238,7 @@ double-notify.
 | `/api/expected` | GET/POST | Door calendar: list / add expected-context windows |
 | `/api/expected/{id}` | DELETE | Revoke a door-intent window |
 | `/api/brief[?date&lang]` | GET | Daily summary (EN/VI) |
+| `/api/door-log.txt[?lang]` | GET | Downloadable door log text artifact (EN/VI labels, policy hash) |
 | `/api/share/preview` | POST | Plan step: build the message, no write, no consent needed |
 | `/api/share` | POST | Consent-driven share (requires `consent: true`) |
 | `/api/share/log` | GET | Share read-back (audit) |
@@ -628,7 +629,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (330 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (331 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 

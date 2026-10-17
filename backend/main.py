@@ -221,6 +221,32 @@ def _share_message(summary: dict) -> str:
     )
 
 
+def _door_log_text(language: str, limit: int) -> str:
+    labels = caption_ui(language)
+    rows = db.list_events(limit=limit)
+    lines = [labels["export_log_title"], labels["export_log_note"], ""]
+    for row in reversed(rows):
+        triage = json.loads(row.get("triage_json") or "{}") or {}
+        caption = triage.get(f"caption_{language}") or triage.get("caption_en") or ""
+        evidence = [str(item) for item in triage.get("evidence") or []]
+        challenge = triage.get(f"challenge_question_{language}") or triage.get("challenge_question_en") or ""
+        urgency = labels["urgency"].format(value=triage.get("urgency", 0))
+        verification = labels.get(f"verification_{triage.get('verification_status') or 'no_claim'}", "")
+        risk = labels.get(f"risk_{triage.get('risk_level') or 'low'}", "")
+        category = triage.get("category") or row.get("kind") or ""
+        lines.append(f"{row.get('occurred_at', '')} | {category} | {urgency} | {verification} | {risk}")
+        if caption:
+            lines.append(f"    {caption}")
+        if evidence:
+            lines.append(f"    {labels['evidence']}: {', '.join(evidence)}")
+        if challenge:
+            lines.append(f"    {labels['export_challenge']}: {challenge}")
+        lines.append("")
+    ref = policy_ref()
+    lines.append(labels["export_policy"].format(value=f"{ref['version']} ({ref['short']})"))
+    return "\n".join(lines) + "\n"
+
+
 def _find_event(event_id: str | int):
     try:
         eid = int(event_id)
@@ -576,6 +602,16 @@ async def delete_expected(expected_id: int):
 async def brief(date: str | None = None, lang: str | None = None):
     language = lang or db.get_prefs().get("language") or "en"
     return build_daily_summary(db, date, language)
+
+
+@app.get("/api/door-log.txt")
+async def door_log_txt(lang: str | None = None, limit: int = 100):
+    language = lang or db.get_prefs().get("language") or "en"
+    return Response(
+        content=_door_log_text(language, max(1, min(limit, 500))),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="accessbell-door-log.txt"'},
+    )
 
 
 class ShareIn(BaseModel):

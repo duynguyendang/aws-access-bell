@@ -19,7 +19,7 @@ with an AWS account configured; otherwise the stub provider keeps the demo deter
 
 | Time | Shot | Say (paraphrase) |
 |---|---|---|
-| 0:00-0:20 | Cold open on the TV caption: *Someone is at the door* + urgency label | "For deaf and hard-of-hearing residents, the doorbell is a black box. AccessBell turns it into text — on the TV, on the phone, and in Alexa." |
+| 0:00-0:20 | Cold open on the TV caption: *Someone is at the door* + urgency label | "Meet Mai — 72, lives alone, hard of hearing. For her the doorbell was a black box. AccessBell turns it into text — on the TV, on the phone, and in Alexa." |
 | 0:20-0:45 | `POST /api/simulate?fixture=doorbell_med`; caption switches to the grounded med-delivery line with "Evidence" list | "Tier 1 answers instantly; Tier 2, grounded in the door calendar, refines it — and shows its evidence. No evidence, no claim." |
 | 0:45-1:20 | **Gatekeeper**: `curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_police_claim"` | "A visitor claiming to be police. AccessBell will not verify a claim from the visitor's own words. Unverified — high risk — with a challenge question." |
 | 1:20-1:40 | Add an expected window via the calendar form, replay the same claim | "Same claim, now with a window the resident created. Verified, low risk. The gate is evidence, not vibes." |

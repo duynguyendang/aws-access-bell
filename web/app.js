@@ -129,6 +129,7 @@ function applyStatic() {
   setText("brand", "app_title");
   setText("h-advise", "advise_title");
   setText("h-history", "recent_alerts");
+  setText("export-log", "export_log");
   setText("h-calendar", "door_calendar");
   setText("h-share", "share_title");
   setText("h-demo", "simulate");
@@ -581,6 +582,19 @@ function buildDemoBar() {
 
 function wireControls() {
   $("stop-escalation").addEventListener("click", stopEscalation);
+  $("export-log").addEventListener("click", async () => {
+    const response = await fetch(`/api/door-log.txt?lang=${state.lang}`);
+    if (!response.ok) {
+      announce(s("export_log_failed"));
+      return;
+    }
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "accessbell-door-log.txt";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
   const bToggle = $("bilingual-toggle");
   if (bToggle) {
     bToggle.addEventListener("click", () => {
