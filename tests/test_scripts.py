@@ -57,3 +57,26 @@ def test_ring_replay_script_is_wired():
     replay = _load("ring_replay", "scripts/ring_replay.py")
     sig = replay.compute_signature(b"test-payload", "test-secret")
     assert sig.startswith("sha256=")
+
+
+def test_evidence_scripts_are_wired():
+    for script in ("eval_triage.py", "measure_latency.py"):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / script), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+
+
+def test_eval_triage_cases_cover_all_categories():
+    eval_module = _load("eval_triage", "scripts/eval_triage.py")
+    cases = eval_module.build_cases()
+    assert len(cases) >= 40
+    assert {case["category"] for case in cases} == {
+        "MED_DELIVERY",
+        "PACKAGE_DELIVERY",
+        "FAMILY_VISITOR",
+        "UNKNOWN_VISITOR",
+        "MOTION_ANOMALY",
+    }

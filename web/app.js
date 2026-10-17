@@ -1,5 +1,6 @@
 const FIXTURES = [
   "doorbell_unknown",
+  "doorbell_police_claim",
   "doorbell_package_window",
   "doorbell_med",
   "doorbell_family",
@@ -101,7 +102,8 @@ async function loadMeta() {
   const health = await (await fetch("/health")).json();
   state.mockMode = Boolean(health.mock_mode);
   const prefs = await (await fetch("/api/prefs")).json();
-  state.lang = prefs.language === "vi" ? "vi" : "en";
+  const urlLang = new URLSearchParams(window.location.search).get("lang");
+  state.lang = urlLang === "vi" ? "vi" : urlLang === "en" ? "en" : prefs.language === "vi" ? "vi" : "en";
   state.mode = prefs.mode || "both";
   state.child = localStorage.getItem("accessbell_child") === "1";
   state.voice = localStorage.getItem("accessbell_voice") === "1";
@@ -125,7 +127,7 @@ function setText(id, key) {
 function applyStatic() {
   document.title = s("app_title");
   setText("brand", "app_title");
-  setText("h-advise", "recent_alerts");
+  setText("h-advise", "advise_title");
   setText("h-history", "recent_alerts");
   setText("h-calendar", "door_calendar");
   setText("h-share", "share_title");
@@ -139,6 +141,7 @@ function applyStatic() {
   setText("preview", "preview");
   setText("share", "share_now");
   setText("stop-escalation", "stop_escalation");
+  setText("memory-use", "memory_use_same");
   setText("h-talk", "talk_title");
   setText("l-talk-speaker", "talk_speaker");
   setText("opt-visitor", "talk_speaker_visitor");
@@ -702,6 +705,10 @@ function enableDpadNavigation() {
     Array.from(document.querySelectorAll("button, input, select")).filter((el) => el.offsetParent !== null);
   document.addEventListener("keydown", (event) => {
     if (!NAV_KEYS.includes(event.key)) return;
+    const target = event.target;
+    const tag = target && target.tagName ? target.tagName : "";
+    if (target && (target.isContentEditable || tag === "SELECT" || tag === "TEXTAREA")) return;
+    if (tag === "INPUT" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) return;
     const items = focusables();
     if (!items.length) return;
     const index = items.indexOf(document.activeElement);

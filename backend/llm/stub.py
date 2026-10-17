@@ -46,8 +46,8 @@ class StubLLM:
 
         if "motion" in str(kind).lower():
             urgency = 6 if "night" in tags else 5
-            return self._result("MOTION_ANOMALY", urgency, 0.65, ["motion"])
-        return self._result("UNKNOWN_VISITOR", 4, 0.7, ["doorbell"])
+            return self._result("MOTION_ANOMALY", urgency, 0.65, ["motion"] + snap_ev)
+        return self._result("UNKNOWN_VISITOR", 4, 0.7, ["doorbell"] + snap_ev)
 
     @staticmethod
     def _result(category, urgency, confidence, evidence):

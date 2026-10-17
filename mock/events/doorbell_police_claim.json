@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-09-15T11:20:00Z",
+    "request_id": "demo-police-claim-0001",
+    "account_id": "ava1.ring.account.demo0001"
+  },
+  "data": {
+    "id": "ring_doorbell_01_button_press_1789471200000",
+    "type": "button_press",
+    "attributes": {
+      "source": "ring_doorbell_01",
+      "source_type": "devices",
+      "timestamp": 1789471200000,
+      "tags": ["police", "officer"],
+      "label_hint": "police_officer"
+    },
+    "relationships": {
+      "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}
+    }
+  }
+}

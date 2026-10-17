@@ -22,6 +22,35 @@ jobs:
         run: python scripts/check_docs_consistency.py
       - name: Evidence ablation
         run: python scripts/ablation_evidence.py
+      - name: Labeled triage eval
+        run: python scripts/eval_triage.py
+      - name: Latency measurement smoke
+        run: python scripts/measure_latency.py --count 20
+
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: pip install -r requirements-dev.txt
+      - name: Start app
+        run: |
+          DB_URL=sqlite:///ci_a11y.db MOCK_MODE=true API_AUTH_DISABLED=true python -m uvicorn backend.main:app --port 8080 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8080/health && break; sleep 1; done
+      - name: Simulate one alert
+        run: |
+          curl -sf -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_med" > /dev/null
+          sleep 2
+      - name: Pa11y WCAG2AA
+        run: |
+          npx -y pa11y@9 --standard WCAG2AA http://127.0.0.1:8080/
+          npx -y pa11y@9 --standard WCAG2AA "http://127.0.0.1:8080/?lang=vi"
 
   test-postgres:
     runs-on: ubuntu-latest
