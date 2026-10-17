@@ -61,7 +61,9 @@ curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_med"
 What to look at: the alert caption and its **Evidence / Why** line; the Gatekeeper challenge on the
 police claim; the grounding badge (`grounded` / `generic` / `demoted_insufficient_evidence`); the
 `/api/metrics` timers; and **Download door log** — a plain-text artifact of the day's events you can
-keep. A recording plan lives in [docs/DEMO.md](docs/DEMO.md).
+keep. A recording plan lives in [docs/DEMO.md](docs/DEMO.md). For release discipline,
+`SUBMISSION_STRICT=1 python scripts/check_docs_consistency.py` fails while the demo URL / video
+placeholders are still TODO.
 
 ## How it works
 
@@ -189,7 +191,7 @@ aws-access-bell/
 ├── web/                # Fire TV / PWA UI (SSE, D-pad, EN/VI)
 ├── mock/events/        # 7 fixture stories (Ring Partner API v1.1 envelopes)
 ├── prompts/triage.txt  # LLM prompt: TriageResult contract + guardrails
-├── scripts/            # demo_story.py, eval_triage.py, measure_latency.py, ablation_evidence.py, deploy_*
+├── scripts/            # demo_story.py, eval_triage.py, measure_latency.py, verify_mcp.py, ablation_evidence.py, deploy_*
 ├── docs/               # ARCHITECTURE, DEPLOYMENT, SIMULATION, ACCESSIBILITY, DEMO
 └── tests/              # pytest: sqlite + postgres, triage, captions/a11y, MCP, API, escalation, ...
 ```

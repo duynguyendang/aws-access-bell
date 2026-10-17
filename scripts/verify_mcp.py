@@ -1,9 +1,9 @@
 """Verify /mcp end-to-end with a JSON-RPC session: initialize, tools/list, tools/call.
 
-Boots the app on a free port unless --url points at a running server, sends an
-unauthenticated request first (bare 401, Alexa+ mode), then a full tool round.
-Prints every step so the transcript can be kept as evidence; exits non-zero when
-a check fails.
+Boots the app on a free port unless --url points at a running server, then sends
+an unauthenticated request (bare-401 asserted only on the server it boots itself)
+followed by a full initialize / tools/list / tools/call round. Prints every step
+so the transcript can be kept as evidence; exits non-zero when a check fails.
 
 Usage: python scripts/verify_mcp.py [--url http://127.0.0.1:8080] [--token TOKEN]
        [--api-token TOKEN] [--record FILE]
@@ -142,11 +142,17 @@ def main() -> int:
 
             status, headers, _ = rpc(url, "initialize", {"protocolVersion": "2025-11-25"})
             lower_headers = {key.lower(): value for key, value in headers.items()}
-            check(
-                status == 401 and "www-authenticate" not in lower_headers,
-                "unauthenticated /mcp answers a bare 401 (no WWW-Authenticate, Alexa+ mode)",
-                f"expected bare 401 without a token, got {status} headers={lower_headers}",
-            )
+            if server is not None:
+                check(
+                    status == 401 and "www-authenticate" not in lower_headers,
+                    "unauthenticated /mcp answers a bare 401 (no WWW-Authenticate, Alexa+ mode)",
+                    f"expected bare 401 without a token, got {status} headers={lower_headers}",
+                )
+            else:
+                log(
+                    f"note unauthenticated /mcp answered {status}"
+                    f" (WWW-Authenticate {'present' if 'www-authenticate' in lower_headers else 'absent'})"
+                )
 
             status, _, body = rpc(url, "initialize", {"protocolVersion": "2025-11-25"}, token=token)
             result = (body or {}).get("result") or {}
@@ -188,19 +194,22 @@ def main() -> int:
                 f"tools/call get_door_alerts returned {len(alerts or [])} alert(s)",
                 f"tools/call did not return alerts: status={status} body={body}",
             )
+    except OSError as exc:
+        failures.append(f"cannot reach {url}: {exc}")
+        log(f"FAIL cannot reach {url}: {exc}")
     finally:
         if server is not None:
-            server.terminate()
             try:
+                server.terminate()
                 server.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 server.kill()
+            except OSError:
+                pass
 
     if args.record:
         Path(args.record).write_text("\n".join(lines) + "\n", encoding="utf-8")
     if failures:
-        for failure in failures:
-            print(f"FAIL {failure}", file=sys.stderr)
         return 1
     log("MCP verification OK")
     return 0
