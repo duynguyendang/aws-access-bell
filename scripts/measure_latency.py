@@ -1,7 +1,13 @@
-"""Measure Tier-1 and enrichment latency on this machine over N simulated events.
+"""Measure Tier-1 and enrichment latency over N simulated events.
+
+Default: in-process measurement with a temporary DB and the stub LLM.
+With --base-url: replay against a running server (e.g. a deployed demo) and read
+that server's own /api/metrics histograms instead.
 
 Usage: python scripts/measure_latency.py [--count 100] [--json]
-Local measurement, not production telemetry.
+       python scripts/measure_latency.py --base-url https://demo.example.com [--token API_TOKEN]
+
+Synthetic replay, not production telemetry.
 """
 
 import argparse
@@ -10,6 +16,8 @@ import os
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +36,7 @@ FIXTURES = (
 TIMERS = ("tier1_ms", "context_ms", "enrich_ms", "webhook_to_sse_ms")
 
 
-def measure(count: int) -> dict:
+def measure_local(count: int) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
         os.environ["APP_ENV"] = "development"
         os.environ["MOCK_MODE"] = "true"
@@ -60,6 +68,36 @@ def measure(count: int) -> dict:
     }
 
 
+def _fetch(url: str, token: str, method: str = "GET"):
+    request = urllib.request.Request(url, data=b"" if method == "POST" else None, method=method)
+    if token:
+        request.add_header("authorization", f"Bearer {token}")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def measure_remote(base_url: str, token: str, count: int) -> dict:
+    base_url = base_url.rstrip("/")
+    for index in range(count):
+        _fetch(f"{base_url}/api/simulate?fixture={FIXTURES[index % len(FIXTURES)]}", token, method="POST")
+    deadline = time.time() + 120
+    snapshot = None
+    while time.time() < deadline:
+        snapshot = _fetch(f"{base_url}/api/metrics", token)
+        if snapshot["timers"].get("enrich_ms", {}).get("count", 0) >= count:
+            break
+        time.sleep(0.25)
+    timers = (snapshot or {}).get("timers", {})
+    return {
+        "source": (
+            f"remote replay against {base_url} (server /api/metrics histograms); "
+            "synthetic events, not production telemetry"
+        ),
+        "count": count,
+        "timers": {name: timers.get(name, {}) for name in TIMERS},
+    }
+
+
 def render(report: dict) -> str:
     lines = [
         f"{report['source']} - {report['count']} simulated events",
@@ -78,8 +116,20 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--count", type=int, default=100)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--base-url", default="", help="measure a running server instead of this machine")
+    parser.add_argument("--token", default="", help="API bearer token for --base-url targets")
     args = parser.parse_args()
-    report = measure(args.count)
+    if args.base_url:
+        try:
+            report = measure_remote(args.base_url, args.token, args.count)
+        except urllib.error.HTTPError as exc:
+            print(f"measurement target answered HTTP {exc.code}: {exc.reason}", file=sys.stderr)
+            return 1
+        except OSError as exc:
+            print(f"cannot reach measurement target: {exc}", file=sys.stderr)
+            return 1
+    else:
+        report = measure_local(args.count)
     print(json.dumps(report, indent=2) if args.json else render(report))
     return 0
 

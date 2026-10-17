@@ -39,6 +39,8 @@ def test_consistency_script_reports_clean():
     assert checker.check_tool_catalog() == []
     assert checker.check_caption_rules() == []
     assert checker.check_slo_docs() == []
+    assert checker.check_submission_ready("plain text without placeholders") == []
+    assert checker.check_submission_ready("<!-- TODO(submission): demo URL -->") != []
     claimed = int(re.search(r"\*\*(\d+) tests\*\*", (ROOT / "README.md").read_text(encoding="utf-8")).group(1))
     assert checker.check_test_count(collected=claimed) == []
     assert checker.check_test_count(collected=claimed + 1) != []
@@ -60,13 +62,25 @@ def test_ring_replay_script_is_wired():
 
 
 def test_evidence_scripts_are_wired():
-    for script in ("eval_triage.py", "measure_latency.py"):
+    for script in ("eval_triage.py", "measure_latency.py", "verify_mcp.py"):
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts" / script), "--help"],
             capture_output=True,
             text=True,
         )
         assert result.returncode == 0, result.stderr
+    eval_help = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "eval_triage.py"), "--help"],
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "--provider" in eval_help
+    latency_help = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "measure_latency.py"), "--help"],
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "--base-url" in latency_help
 
 
 def test_eval_triage_cases_cover_all_categories():

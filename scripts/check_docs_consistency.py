@@ -1,8 +1,12 @@
 """Fail when prose and data drift apart (test count, MCP tool catalog, caption rules).
 
-Usage: python scripts/check_docs_consistency.py
+With --strict-submission (or SUBMISSION_STRICT=1) it also fails while the README
+still carries TODO(submission) placeholders for the demo URL / video link.
+
+Usage: python scripts/check_docs_consistency.py [--strict-submission]
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -103,10 +107,21 @@ def check_test_count(collected: int | None = None) -> list[str]:
     return []
 
 
+def check_submission_ready(readme: str | None = None) -> list[str]:
+    text = _read("README.md") if readme is None else readme
+    problems = []
+    if "TODO(submission)" in text:
+        problems.append("README.md still has TODO(submission) placeholders (demo URL / video link)")
+    return problems
+
+
 def main() -> int:
+    strict = "--strict-submission" in sys.argv or os.environ.get("SUBMISSION_STRICT") == "1"
     problems = (
         check_tool_catalog() + check_caption_rules() + check_test_count() + check_slo_docs()
     )
+    if strict:
+        problems += check_submission_ready()
     if problems:
         for problem in problems:
             print(f"DRIFT: {problem}")

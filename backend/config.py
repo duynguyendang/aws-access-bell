@@ -73,7 +73,6 @@ class Settings:
     )
 
     aws_region: str = field(default_factory=lambda: _env("AWS_REGION", "us-east-1"))
-    bedrock_model_id: str = field(default_factory=lambda: _env("BEDROCK_MODEL_ID"))
     eventbridge_bus_name: str = field(default_factory=lambda: _env("EVENTBRIDGE_BUS_NAME"))
     llm_timeout_seconds: int = field(default_factory=lambda: _int("LLM_TIMEOUT_SECONDS", 5))
     llm_model: str = field(default_factory=lambda: _env("LLM_MODEL"))

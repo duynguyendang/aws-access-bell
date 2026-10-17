@@ -4,6 +4,19 @@ import json
 from .policy import policy_ref
 from .util import iso_in, seconds_until
 
+HIGH_STAKES_VERIFICATIONS = frozenset({"unverified", "contradiction"})
+
+
+def escalation_triggered(triage: dict, policy: dict) -> bool:
+    if not policy.get("enabled"):
+        return False
+    if (triage.get("urgency") or 0) >= policy.get("min_urgency", 7):
+        return True
+    return (
+        triage.get("risk_level") == "high"
+        and triage.get("verification_status") in HIGH_STAKES_VERIFICATIONS
+    )
+
 
 class EscalationManager:
     def __init__(self, db, broker, notifier):
@@ -14,9 +27,7 @@ class EscalationManager:
 
     def schedule(self, event_id: int, triage: dict) -> bool:
         policy = self._db.get_escalation_policy()
-        if not policy["enabled"]:
-            return False
-        if (triage.get("urgency") or 0) < policy["min_urgency"]:
+        if not escalation_triggered(triage, policy):
             return False
         contacts = self._db.list_escalation_contacts(enabled_only=True)
         if not contacts:

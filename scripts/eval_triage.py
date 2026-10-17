@@ -1,14 +1,17 @@
-"""Labeled triage eval: category, Gatekeeper and memory across scenario labels.
+"""Labeled triage eval: category, Gatekeeper, memory, grounding demotion and escalation.
 
 Scenarios are fixture-derived; the expected labels are written by hand in this
-file (synthetic scenario labels, not human-reviewed production data).
+file (synthetic scenario labels, not human-reviewed production data). Escalation
+is scored as if the resident had opted in (enabled, min_urgency 7); consent stays
+off by default in the product.
 
-Usage: python scripts/eval_triage.py [--json]
+Usage: python scripts/eval_triage.py [--json] [--provider stub|bedrock|...] [--model ID]
 Exits non-zero when any case fails.
 """
 
 import argparse
 import json
+import os
 import sys
 import tempfile
 import uuid
@@ -19,6 +22,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.db import Database
+from backend.escalation import escalation_triggered
 from backend.llm.stub import StubLLM
 from backend.triage import EnrichmentPipeline
 from backend.webhook import parse_ring_payload
@@ -30,12 +34,12 @@ DEVICE = "ring_doorbell_01"
 BASE = json.loads((ROOT / "mock" / "events" / "doorbell_unknown.json").read_text(encoding="utf-8"))
 
 FIXTURES = {
-    "doorbell_med": ("MED_DELIVERY", "grounded", "unverified", "high"),
-    "doorbell_package_window": ("PACKAGE_DELIVERY", "grounded", "unverified", "medium"),
-    "doorbell_family": ("FAMILY_VISITOR", "grounded", "unverified", "medium"),
-    "doorbell_unknown": ("UNKNOWN_VISITOR", "generic", "unverified", "medium"),
-    "motion_only": ("MOTION_ANOMALY", "generic", "no_claim", "low"),
-    "motion_night": ("MOTION_ANOMALY", "generic", "no_claim", "low"),
+    "doorbell_med": ("MED_DELIVERY", "grounded", "unverified", "high", True),
+    "doorbell_package_window": ("PACKAGE_DELIVERY", "grounded", "unverified", "medium", False),
+    "doorbell_family": ("FAMILY_VISITOR", "grounded", "unverified", "medium", False),
+    "doorbell_unknown": ("UNKNOWN_VISITOR", "generic", "unverified", "medium", False),
+    "motion_only": ("MOTION_ANOMALY", "generic", "no_claim", "low", False),
+    "motion_night": ("MOTION_ANOMALY", "generic", "no_claim", "low", False),
 }
 
 WINDOWS = {
@@ -45,7 +49,11 @@ WINDOWS = {
     "police": ("ding", "police patrol", "2026-09-15T09:00:00Z", "2026-09-15T10:30:00Z"),
     "utility": ("ding", "utility meter check", "2026-09-15T09:00:00Z", "2026-09-15T10:30:00Z"),
 }
-WINDOW_CATEGORY = {"pharmacy": "MED_DELIVERY", "package": "PACKAGE_DELIVERY", "family": "FAMILY_VISITOR"}
+WINDOW_CATEGORY = {
+    "pharmacy": ("MED_DELIVERY", True),
+    "package": ("PACKAGE_DELIVERY", False),
+    "family": ("FAMILY_VISITOR", False),
+}
 
 CLAIMS = {
     "police": (["police", "officer"], "UNKNOWN_VISITOR", "high"),
@@ -55,12 +63,40 @@ CLAIMS = {
 }
 
 HINT_CASES = [
-    ("medicine", ["medicine"], "MED_DELIVERY", "unverified", "high"),
-    ("doctor", ["doctor"], "MED_DELIVERY", "unverified", "high"),
-    ("package", ["package"], "PACKAGE_DELIVERY", "unverified", "medium"),
-    ("courier", ["courier"], "PACKAGE_DELIVERY", "unverified", "medium"),
-    ("guest", ["guest"], "FAMILY_VISITOR", "unverified", "medium"),
-    ("relative", ["relative"], "FAMILY_VISITOR", "unverified", "medium"),
+    ("medicine", ["medicine"], "MED_DELIVERY", "unverified", "high", True),
+    ("doctor", ["doctor"], "MED_DELIVERY", "unverified", "high", True),
+    ("package", ["package"], "PACKAGE_DELIVERY", "unverified", "medium", False),
+    ("courier", ["courier"], "PACKAGE_DELIVERY", "unverified", "medium", False),
+    ("guest", ["guest"], "FAMILY_VISITOR", "unverified", "medium", False),
+    ("relative", ["relative"], "FAMILY_VISITOR", "unverified", "medium", False),
+]
+
+
+class InventingLLM:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def triage(self, **kwargs):
+        return dict(self._payload)
+
+
+def invented(caption_en: str, category: str, urgency: int) -> InventingLLM:
+    return InventingLLM(
+        {
+            "category": category,
+            "urgency": urgency,
+            "confidence": 0.95,
+            "evidence": ["doorbell"],
+            "caption_en": caption_en,
+            "caption_vi": "",
+        }
+    )
+
+
+DEMOTION_CASES = [
+    ("family_alex", "Your friend Alex is at the door", "FAMILY_VISITOR", 3, "Alex"),
+    ("med_pharmacy", "Pharmacy delivery for Sarah", "MED_DELIVERY", 8, "Sarah"),
+    ("package_courier", "Courier with your parcel", "PACKAGE_DELIVERY", 6, "Courier with your parcel"),
 ]
 
 MEMORY_CASES = [
@@ -95,7 +131,19 @@ def strip_hints(payload: dict) -> dict:
     return payload
 
 
-def case(case_id, payload, category, grounding, verification="no_claim", risk="low", memory="", window=None):
+def case(
+    case_id,
+    payload,
+    category,
+    grounding,
+    verification="no_claim",
+    risk="low",
+    memory="",
+    window=None,
+    llm=None,
+    forbid="",
+    escalate=False,
+):
     return {
         "id": case_id,
         "payload": payload,
@@ -105,30 +153,59 @@ def case(case_id, payload, category, grounding, verification="no_claim", risk="l
         "risk": risk,
         "memory": memory,
         "window": window,
+        "llm": llm,
+        "forbid": forbid,
+        "escalate": escalate,
     }
 
 
 def build_cases() -> list[dict]:
     cases = []
-    for name, (category, grounding, verification, risk) in FIXTURES.items():
+    for name, (category, grounding, verification, risk, escalate) in FIXTURES.items():
         payload = json.loads((ROOT / "mock" / "events" / f"{name}.json").read_text(encoding="utf-8"))
-        cases.append(case(f"fixture:{name}", payload, category, grounding, verification, risk))
+        cases.append(
+            case(f"fixture:{name}", payload, category, grounding, verification, risk, escalate=escalate)
+        )
         stripped_category = "MOTION_ANOMALY" if category == "MOTION_ANOMALY" else "UNKNOWN_VISITOR"
         cases.append(case(f"stripped:{name}", strip_hints(payload), stripped_category, "generic"))
     for claim, (tags, category, unverified_risk) in CLAIMS.items():
+        high_stakes = unverified_risk == "high"
         grounding = "generic" if category == "UNKNOWN_VISITOR" else "grounded"
-        cases.append(case(f"claim:{claim}:none", synth(tags=tags), category, grounding, "unverified", unverified_risk))
+        cases.append(
+            case(
+                f"claim:{claim}:none",
+                synth(tags=tags),
+                category,
+                grounding,
+                "unverified",
+                unverified_risk,
+                escalate=high_stakes,
+            )
+        )
         cases.append(case(f"claim:{claim}:snapshot", synth(tags=tags, snapshot=True), category, grounding, "verified", "low"))
         cases.append(
             case(f"claim:{claim}:window", synth(tags=tags), category, grounding, "verified", "low", window=WINDOWS[claim])
         )
         cases.append(
-            case(f"claim:{claim}:window_other", synth(tags=tags), "MED_DELIVERY", "grounded", "contradiction", "high", window=WINDOWS["pharmacy"])
+            case(
+                f"claim:{claim}:window_other",
+                synth(tags=tags),
+                "MED_DELIVERY",
+                "grounded",
+                "contradiction",
+                "high",
+                window=WINDOWS["pharmacy"],
+                escalate=True,
+            )
         )
-    for name, category in WINDOW_CATEGORY.items():
-        cases.append(case(f"window:{name}", synth(), category, "grounded", "no_claim", "low", window=WINDOWS[name]))
-    for name, tags, category, verification, risk in HINT_CASES:
-        cases.append(case(f"hint:{name}", synth(tags=tags), category, "grounded", verification, risk))
+    for name, (category, escalate) in WINDOW_CATEGORY.items():
+        cases.append(
+            case(f"window:{name}", synth(), category, "grounded", "no_claim", "low", window=WINDOWS[name], escalate=escalate)
+        )
+    for name, tags, category, verification, risk, escalate in HINT_CASES:
+        cases.append(
+            case(f"hint:{name}", synth(tags=tags), category, "grounded", verification, risk, escalate=escalate)
+        )
     for action, prior_category, expected_memory in MEMORY_CASES:
         cases.append(
             {
@@ -141,13 +218,31 @@ def build_cases() -> list[dict]:
                 "memory": expected_memory,
                 "window": None,
                 "prior": {"action": action, "category": prior_category},
+                "llm": None,
+                "forbid": "",
+                "escalate": True,
             }
         )
-    cases.append(case("memory:no_prior", synth(tags=["medicine"]), "MED_DELIVERY", "grounded", "unverified", "high"))
+    cases.append(
+        case("memory:no_prior", synth(tags=["medicine"]), "MED_DELIVERY", "grounded", "unverified", "high", escalate=True)
+    )
+    for name, caption, category, urgency, forbid in DEMOTION_CASES:
+        cases.append(
+            case(
+                f"demote:{name}",
+                synth(),
+                "UNKNOWN_VISITOR",
+                "demoted_insufficient_evidence",
+                "no_claim",
+                "low",
+                llm=invented(caption, category, urgency),
+                forbid=forbid,
+            )
+        )
     return cases
 
 
-def run_case(case_row: dict) -> dict:
+def run_case(case_row: dict, llm) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
         database = Database(f"sqlite:///{Path(tmp) / 'eval.db'}")
         database.init_schema()
@@ -157,14 +252,23 @@ def run_case(case_row: dict) -> dict:
             prior_id = database.insert_event("eval", DEVICE, "button_press", TS, {"meta": {}})
             database.update_triage(prior_id, {"category": case_row["prior"]["category"]}, status="enriched")
             database.add_label(prior_id, f"device:{DEVICE}", case_row["prior"]["action"], source="eval")
-        pipeline = EnrichmentPipeline(database, StubLLM())
+        pipeline = EnrichmentPipeline(database, case_row.get("llm") or llm)
         parsed = parse_ring_payload(case_row["payload"])
         event_id = database.insert_event(
             "eval", parsed["device_id"], parsed["kind"], parsed["occurred_at"], case_row["payload"]
         )
         result, ok = pipeline.enrich(database.get_event(event_id))
         database.close()
+    forbid = case_row.get("forbid") or ""
     expected_challenge = case_row["verification"] in {"unverified", "contradiction"}
+    escalation_armed = escalation_triggered(
+        {
+            "urgency": result.urgency,
+            "risk_level": result.risk_level,
+            "verification_status": result.verification_status,
+        },
+        {"enabled": True, "min_urgency": 7},
+    )
     row = {
         "id": case_row["id"],
         "ok": ok,
@@ -178,6 +282,10 @@ def run_case(case_row: dict) -> dict:
         "expected_risk": case_row["risk"],
         "memory_action": result.memory_action,
         "expected_memory": case_row["memory"],
+        "urgency": result.urgency,
+        "caption_en": result.caption_en,
+        "escalation_armed": escalation_armed,
+        "expected_escalation": bool(case_row.get("escalate")),
     }
     row["checks"] = {
         "category": row["category"] == row["expected_category"],
@@ -186,6 +294,8 @@ def run_case(case_row: dict) -> dict:
         "risk": row["risk_level"] == row["expected_risk"],
         "memory": row["memory_action"] == row["expected_memory"],
         "challenge": bool(result.challenge_question_en) == expected_challenge,
+        "no_invented": (forbid not in result.caption_en) if forbid else True,
+        "escalation": row["escalation_armed"] == row["expected_escalation"],
     }
     row["passed"] = all(row["checks"].values())
     return row
@@ -205,6 +315,18 @@ def summarise(rows: list[dict]) -> dict:
         }
     claim_rows = [row for row in rows if row["expected_verification"] != "no_claim"]
     memory_rows = [row for row in rows if row["id"].startswith("memory:")]
+    escalation = {
+        "expected": sum(row["expected_escalation"] for row in rows),
+        "armed": sum(row["escalation_armed"] for row in rows),
+        "false": sum(row["escalation_armed"] and not row["expected_escalation"] for row in rows),
+        "missed": sum(row["expected_escalation"] and not row["escalation_armed"] for row in rows),
+    }
+    escalation["false_rate"] = (
+        round(escalation["false"] / escalation["armed"], 3) if escalation["armed"] else 0.0
+    )
+    escalation["missed_rate"] = (
+        round(escalation["missed"] / escalation["expected"], 3) if escalation["expected"] else 0.0
+    )
     return {
         "cases": len(rows),
         "passed": sum(row["passed"] for row in rows),
@@ -214,21 +336,26 @@ def summarise(rows: list[dict]) -> dict:
         ),
         "memory_accuracy": round(sum(row["checks"]["memory"] for row in memory_rows) / len(memory_rows), 3),
         "demotions": sum(row["grounding"] == "demoted_insufficient_evidence" for row in rows),
+        "escalation": escalation,
         "per_category": per_category,
         "failures": [row["id"] for row in rows if not row["passed"]],
     }
 
 
-def render(summary: dict, rows: list[dict]) -> str:
+def render(summary: dict, rows: list[dict], provider: str, model: str) -> str:
+    escalation = summary["escalation"]
     lines = [
-        f"AccessBell triage eval - {summary['cases']} scenario cases"
-        " (fixture-derived labels, not production telemetry)",
+        f"AccessBell triage eval - {summary['cases']} scenario cases",
+        f"provider {provider}, model {model}; fixture-derived labels, not production telemetry",
+        "escalation scored as if opted in (enabled, min_urgency 7); consent stays off by default",
         "",
         f"cases passed          {summary['passed']}/{summary['cases']}",
         f"category accuracy     {summary['category_accuracy']}",
         f"gatekeeper accuracy   {summary['gatekeeper_accuracy']}",
         f"memory accuracy       {summary['memory_accuracy']}",
         f"demotions             {summary['demotions']}",
+        f"escalations armed     {escalation['armed']}/{escalation['expected']} expected"
+        f" (false {escalation['false']}, missed {escalation['missed']})",
         "",
         f"{'category':<18}{'support':>8}{'precision':>11}{'recall':>8}",
     ]
@@ -244,16 +371,40 @@ def render(summary: dict, rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def build_llm_for(provider: str, model: str):
+    if provider == "stub":
+        return "stub", StubLLM()
+    from backend.config import Settings
+    from backend.llm import build_llm, resolve_model_name
+
+    settings = Settings(llm_provider=provider, llm_model=model)
+    return resolve_model_name(settings), build_llm(settings)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--provider", default=os.environ.get("LLM_PROVIDER", "stub"))
+    parser.add_argument("--model", default=os.environ.get("LLM_MODEL", ""))
     args = parser.parse_args()
-    rows = [run_case(case_row) for case_row in build_cases()]
+    try:
+        model_label, llm = build_llm_for(args.provider, args.model)
+    except Exception as exc:
+        print(f"cannot initialise provider {args.provider!r}: {exc}", file=sys.stderr)
+        print("for Bedrock: pip install -r requirements-bedrock.txt and configure AWS credentials", file=sys.stderr)
+        return 2
+    rows = [run_case(case_row, llm) for case_row in build_cases()]
     summary = summarise(rows)
     if args.json:
-        print(json.dumps({"summary": summary, "rows": rows}, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"provider": args.provider, "model": model_label, "summary": summary, "rows": rows},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
     else:
-        print(render(summary, rows))
+        print(render(summary, rows, args.provider, model_label))
     return 0 if summary["passed"] == summary["cases"] else 1
 
 

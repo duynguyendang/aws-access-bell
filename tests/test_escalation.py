@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from backend import main as main_module
 from backend.db import Database
-from backend.escalation import EscalationManager
+from backend.escalation import EscalationManager, escalation_triggered
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
@@ -292,3 +292,64 @@ def test_pending_claimed_at_most_once(tmp_path):
     queued_count, leftover = asyncio.run(scenario())
     assert queued_count == 1, "exactly one instance may fire the escalation"
     assert leftover == [], "pending row must be consumed"
+
+
+def test_escalation_trigger_rule():
+    policy = {"enabled": True, "min_urgency": 7}
+    assert escalation_triggered({"urgency": 7}, policy) is True
+    assert escalation_triggered({"urgency": 6, "risk_level": "medium"}, policy) is False
+    assert (
+        escalation_triggered(
+            {"urgency": 4, "risk_level": "high", "verification_status": "unverified"}, policy
+        )
+        is True
+    )
+    assert (
+        escalation_triggered(
+            {"urgency": 4, "risk_level": "high", "verification_status": "contradiction"}, policy
+        )
+        is True
+    )
+    assert (
+        escalation_triggered(
+            {"urgency": 4, "risk_level": "high", "verification_status": "verified"}, policy
+        )
+        is False
+    )
+    assert escalation_triggered({"urgency": 8}, {"enabled": False, "min_urgency": 7}) is False
+
+
+def test_high_risk_unverified_claim_arms_below_urgency_threshold(tmp_path):
+    async def scenario():
+        database = Database(f"sqlite:///{tmp_path / 'claim.db'}")
+        database.init_schema()
+        database.set_escalation_policy(enabled=True, timeout_seconds=1, min_urgency=7)
+        database.add_escalation_contact("con Lan", "lan@example.com")
+        event_id = database.insert_event("mock", "d1", "ding", "2026-09-15T09:00:00Z", {})
+        database.update_triage(
+            event_id,
+            {
+                "category": "UNKNOWN_VISITOR",
+                "urgency": 4,
+                "confidence": 0.6,
+                "evidence": ["doorbell"],
+                "caption_en": "Someone is at the door and claims to be police",
+                "risk_level": "high",
+                "verification_status": "unverified",
+            },
+        )
+        manager = EscalationManager(database, FakeBroker(), FakeNotifier())
+        armed = manager.schedule(
+            event_id,
+            {
+                "urgency": 4,
+                "risk_level": "high",
+                "verification_status": "unverified",
+                "caption_en": "Someone is at the door and claims to be police",
+            },
+        )
+        manager.shutdown()
+        database.close()
+        return armed
+
+    assert asyncio.run(scenario()) is True

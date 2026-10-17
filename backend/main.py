@@ -21,7 +21,7 @@ from .captions import ui_strings as caption_ui
 from .config import settings
 from .db import Database
 from .escalation import EscalationManager
-from .llm import build_llm
+from .llm import build_llm, resolve_model_name
 from .mcp_server import MCPServer
 from .metrics import metrics
 from .notifier import Notifier
@@ -373,7 +373,12 @@ async def _announce(event: dict, started: float | None = None):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "mock_mode": settings.mock_mode, "llm_provider": settings.llm_provider}
+    return {
+        "status": "ok",
+        "mock_mode": settings.mock_mode,
+        "llm_provider": settings.llm_provider,
+        "llm_model": resolve_model_name(settings) or "stub",
+    }
 
 
 @app.get("/api/policy")

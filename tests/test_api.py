@@ -42,6 +42,7 @@ def test_health(client):
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["llm_provider"] == "stub"
+    assert body["llm_model"] == "stub"
 
 
 def test_settings_reads_port_env(monkeypatch):
