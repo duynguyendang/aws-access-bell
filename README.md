@@ -28,6 +28,13 @@ government-impersonation losses alone at $789M (up $171M year over year) — and
 the highest median losses of any age group
 ([FTC, 2024](https://www.ftc.gov/reports/consumer-sentinel-network-data-book-2024)).
 
+**Closest incumbent.** Ring Video Descriptions already turns camera events into text (subscription,
+7 languages) and Alexa+ Greetings can handle a delivery at the door. Neither adjudicates the
+visitor's *claim*: AccessBell verifies the claim against independent evidence (expected window,
+snapshot, calendar event, user label) and refuses to soften an unverified high-stakes one — with
+consent-gated escalation, an auditable door log, EN/VI TTS-safe captions on a TV-first surface and
+the same door tools exposed over MCP.
+
 ## Try it
 
 | | |
@@ -41,10 +48,11 @@ the highest median losses of any age group
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                        # **331 tests** (298 pass + 33 Postgres-skipped)
-python scripts/eval_triage.py              # 42 labeled scenarios: category + Gatekeeper + memory
+python -m pytest -q                        # **333 tests** (300 pass + 33 Postgres-skipped)
+python scripts/eval_triage.py              # 45 labeled scenarios: category + Gatekeeper + memory + demotion/escalation
 python scripts/ablation_evidence.py        # grounding gate ablation (3 arms)
 python scripts/measure_latency.py          # local Tier-1 / enrichment latency (stub)
+python scripts/verify_mcp.py               # boots the app, then initialize / tools/list / tools/call
 DB_URL=sqlite:///demo.db MOCK_MODE=true python -m backend &   # then:
 curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_police_claim"
 curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_med"
@@ -126,11 +134,13 @@ identical for every model.
 Measured locally with `scripts/measure_latency.py` (100 simulated events, stub LLM, this repo;
 numbers vary by machine and are not production telemetry): `tier1_ms` p95 **6.5 ms**, `enrich_ms`
 p95 **12.3 ms**, `webhook_to_sse_ms` p95 **6.6 ms**. Budgets and live histograms are in `/api/metrics`.
+`--base-url` replays the same fixtures against a deployed server and reads that server's histograms.
 
 Grounding is measurable, not asserted — same fixtures, three arms
 (`scripts/ablation_evidence.py`): `event_only` 0.5, `payload_hints` 1.0, `expected_window` 1.0
-category accuracy; and `scripts/eval_triage.py` runs 42 labeled scenarios covering the 5 categories,
-Gatekeeper outcomes and memory (all rows and the source label are printed by the script).
+category accuracy; and `scripts/eval_triage.py` runs 45 labeled scenarios covering the 5 categories,
+Gatekeeper outcomes, memory, grounding demotion (3 cases with an injected LLM that invents) and
+escalation arming (scored as if opted in; false-escalation and missed counts printed).
 
 Accessibility is enforced, not claimed: **pa11y WCAG2AA** runs in CI on `/` and `/?lang=vi` with a
 simulated alert (zero reported issues), captions are EN+VI and TTS-safe by test, and D-pad
@@ -195,7 +205,7 @@ All variables are documented in `.env.example`; the full table with platform not
 | `LLM_PROVIDER` / `LLM_MODEL` / `LLM_TIMEOUT_SECONDS` | `stub` / provider default / `5` | `stub` \| `bedrock` \| `openai` \| `anthropic` \| `google` \| `ollama`; AWS deploys use `bedrock` |
 | `DB_URL` / `DB_PATH` | `sqlite:///accessbell.db` | SQLite or Postgres; `POSTGRES_HOST/PORT/USER/PASSWORD/DB` build the DSN |
 | `PORT` / `WEB_DIR` / `MOCK_EVENTS_DIR` / `LOG_LEVEL` / `APP_ENV` | `8080` / `web` / `mock/events` / `INFO` / `development` | Runtime basics |
-| `AWS_REGION` / `BEDROCK_MODEL_ID` | `us-east-1` / `us.amazon.nova-lite-v1:0` | Bedrock model and region |
+| `AWS_REGION` | `us-east-1` | Bedrock region; `LLM_MODEL` defaults to `us.amazon.nova-lite-v1:0` for `bedrock` |
 | `EVENTBRIDGE_BUS_NAME` | – | Publish triaged events to EventBridge; empty = off |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / `OLLAMA_BASE_URL` | – | Alternative LLM providers |
 | `RING_WEBHOOK_ENABLED` / `RING_WEBHOOK_SECRET` / `RING_SIGNATURE_HEADER` | `false` / – / `X-Signature` | Webhook HMAC verification |
@@ -241,7 +251,7 @@ invented numbers.
 | Gatekeeper verification; Memory; door-talk interpreter (fixed prompts, EN/VI) | Public HTTPS deploy + Postgres (CDK stack in `infra/`) |
 | MCP server (11 tools); Calendar MCP join (optional); daily brief; share protocol | Alexa+ connection (OAuth 2.1 / PKCE, `MCP_401_WWW_AUTHENTICATE=false`) |
 | Consent escalation (durable, at-most-once, audited); quiet hours; child captions | One-frame snapshot in consented share |
-| Evidence tooling: eval (42 cases), ablation, latency, WCAG2AA CI, docs check | Richer voice history with event citations; speak-at-door replies where APIs allow |
+| Evidence tooling: eval (45 cases), ablation, latency, WCAG2AA CI, docs check | Richer voice history with event citations; speak-at-door replies where APIs allow |
 
 **Out of scope on purpose:** face recognition · location tracking of children · scraping private
 calendars/email · medical monitoring or EMS · 24/7 video analytics.

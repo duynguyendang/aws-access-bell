@@ -6,14 +6,18 @@ hook. Record at 1080p; show the UI full-screen (Fire TV layout) and keep the cap
 ## Setup before recording
 
 ```bash
-pip install -r requirements-dev.txt
-DB_URL=sqlite:///demo.db MOCK_MODE=true python -m backend
+pip install -r requirements-dev.txt -r requirements-bedrock.txt
+AWS_REGION=us-east-1 LLM_PROVIDER=bedrock LLM_MODEL=us.amazon.nova-lite-v1:0 \
+  DB_URL=sqlite:///demo.db MOCK_MODE=true python -m backend
 # second terminal, once the app is up:
 curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_unknown"   # warm-up, not shown
+curl -s http://127.0.0.1:8080/health                                         # provider + model id
 ```
 
-Optional (shows Bedrock): export `LLM_PROVIDER=bedrock BEDROCK_MODEL_ID=us.amazon.nova-lite-v1:0`
-with an AWS account configured; otherwise the stub provider keeps the demo deterministic.
+Bedrock is the product path for the recording: `LLM_PROVIDER=bedrock` needs an AWS account with the
+model enabled (Nova Lite by default; `LLM_MODEL` overrides). `MOCK_MODE=true` only swaps the Ring
+input for fixtures — it does not force the stub LLM. Fallback if Bedrock is unavailable: the `stub`
+provider keeps the demo deterministic; if you record with it, say "offline test mode" on camera.
 
 ## Shot list
 
@@ -26,11 +30,12 @@ with an AWS account configured; otherwise the stub provider keeps the demo deter
 | 1:40-2:10 | Quick replies + Memory suggestion + escalation countdown, then Stop escalation | "One tap replies at the door. The memory suggestion reuses the last reply. Escalation is off until the resident turns it on — and it is revocable and audited." |
 | 2:10-2:30 | Door talk interpreter: type a fixed visitor phrase, show EN/VI pair; switch `?lang=vi` | "Fixed phrases, EN and VI, no free-text translation — every caption is TTS-safe and bilingual." |
 | 2:30-2:50 | Alexa+ / MCP: `curl` `tools/list` then one `tools/call` (`get_door_alerts`) | "Alexa+ joins over MCP: door intelligence as tools any agent can call." |
-| 2:50-3:00 | Closing card: architecture one-liner + repo URL | "Ring in, accessible text out. Bedrock-optional, privacy-first, runs today." |
+| 2:50-3:00 | Closing card + terminal on screen: `curl /health` (provider + model id) and `curl /api/metrics` (tier1/enrich p95 + grounding tally) | "Ring in, accessible text out. Rules answer in milliseconds, Bedrock grounds the caption with evidence. Privacy-first, runs today." |
 
 ## Tips
 
 - Keep the browser zoom at 150% so captions are readable in the video.
 - Use `?lang=vi` for one shot only; mention the bilingual toggle instead of showing both.
-- If Bedrock is enabled for the recording, call it out on screen with the model id.
+- Call the provider and model id out on screen (the `/health` shot); say that Tier 1 rules answer
+  instantly and the model refines the caption with evidence.
 - Re-record individual shots; do not do it in one take.

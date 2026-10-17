@@ -171,7 +171,9 @@ confidence < threshold
 ### 3.5 Escalation (consent-based safety net)
 
 ```
-enriched triage.urgency >= policy.min_urgency  AND  policy.enabled
+policy.enabled  AND  escalation_triggered(triage, policy)
+  trigger: triage.urgency >= policy.min_urgency
+           OR (triage.risk_level = high AND triage.verification_status in {unverified, contradiction})
   → persist pending row (escalation_pending.fire_at) + schedule task
   → user replies/confirms (PWA or MCP) within window
         → pending claimed/deleted; escalation_log: status=stopped  (audit)
@@ -245,6 +247,7 @@ double-notify.
 | `/api/share/{id}/revoke` | POST | Revoke a share (append-only audit row) |
 | `/api/policy` | GET | Active `policy.yaml` version + SHA |
 | `/api/metrics` | GET | Fixture-derived counters: status, grounding, escalation, latency timers |
+| `/health` | GET | Liveness: mock mode, `llm_provider`, resolved `llm_model` |
 | `/api/ui-strings` | GET | UI labels + fixed-prompt door-talk phrasebook EN/VI (single source in `captions.py`) |
 | `/api/advise` | GET | Read-only suggestions (never auto-writes) |
 | `/api/escalation/stop` | POST | Acknowledge + stop a pending escalation from the UI |
@@ -629,7 +632,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (331 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (333 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 
@@ -641,7 +644,7 @@ variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on S
 | `tests/test_slo.py` | Tier 1 never calls the LLM, calendar timeout follows `CONTEXT_BUDGET_MS`, **enrich budget hard timeout**, budget/timeout metrics, fail-open, `context_status` |
 | `tests/test_util.py` | Rate-limiter key pruning; quiet-hours window wrap; **X-Forwarded-For trust** (empty default ignores the header, exact IP/CIDR allowlist, spoofed header from untrusted peer ignored) |
 | `tests/test_adversarial.py` | Forged/missing signature rejected, inventing LLM demoted, LLM failure → Tier 1, single-use escalation claim |
-| `tests/test_scripts.py` | Ablation arms show grounding contribution; docs-consistency checks pass; evidence scripts (`eval_triage`, `measure_latency`) callable; eval covers all 5 categories with ≥40 cases |
+| `tests/test_scripts.py` | Ablation arms show grounding contribution; docs-consistency checks pass (incl. gated submission check); evidence scripts (`eval_triage`, `measure_latency`, `verify_mcp`) callable; eval covers all 5 categories with ≥40 cases |
 | `tests/test_aws_events.py` | EventBridge publisher: disabled without bus name, entry shape (source/detail), AWS failures never raise |
 | `tests/test_docker_context.py` | Every `COPY` source in the Dockerfile exists and is not excluded by `.dockerignore` |
 | `tests/test_triage_data.py` | Data-driven: taxonomy (5 categories), expected-context windows, quiet-hours motion, child-at-home friend visit, v1.1 `data.attributes` hint, EN/VI captions, generic fallback |
