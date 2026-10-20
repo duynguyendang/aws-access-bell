@@ -55,6 +55,7 @@ const state = {
   history: new Map(),
   mockMode: false,
   ringScenarios: [],
+  alexaEventId: null,
 };
 
 function bootTokenFromUrl() {
@@ -173,6 +174,7 @@ function applyStatic() {
   $("child-toggle").setAttribute("aria-pressed", String(state.child));
   renderReplies();
   buildDemoBar();
+  buildAlexaDemo();
   if (state.ringScenarios.length) renderRingOptions();
 }
 
@@ -675,6 +677,106 @@ function buildDemoBar() {
     });
     container.appendChild(button);
   });
+}
+
+function buildAlexaDemo() {
+  const section = $("alexa-demo");
+  if (!section) return;
+  section.classList.toggle("hidden", !state.mockMode);
+  if (!state.mockMode) return;
+  setText("h-alexa", "alexa_title");
+  setText("alexa-note", "alexa_note");
+  setText("alexa-utterance", "alexa_utterance");
+  setText("alexa-ask", "alexa_ask");
+  setText("alexa-reply", "alexa_reply");
+  $("alexa-transcript").setAttribute("aria-label", s("alexa_transcript"));
+  if (section.dataset.wired === "1") return;
+  section.dataset.wired = "1";
+  $("alexa-ask").addEventListener("click", alexaAsk);
+  $("alexa-reply").addEventListener("click", alexaReply);
+}
+
+async function alexaRpc(method, params, id) {
+  const response = await fetch("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+  });
+  if (!response.ok) throw new Error(String(response.status));
+  const body = await response.json();
+  if (body.error) throw new Error(body.error.message || s("alexa_failed"));
+  return body.result || {};
+}
+
+function addAlexaStep(text) {
+  const item = document.createElement("li");
+  item.textContent = text;
+  $("alexa-transcript").appendChild(item);
+}
+
+async function alexaAsk() {
+  const button = $("alexa-ask");
+  const reply = $("alexa-reply");
+  const answer = $("alexa-answer");
+  $("alexa-transcript").innerHTML = "";
+  answer.textContent = s("alexa_working");
+  state.alexaEventId = null;
+  button.disabled = true;
+  reply.disabled = true;
+  try {
+    const init = await alexaRpc(
+      "initialize",
+      {
+        protocolVersion: "2025-11-25",
+        capabilities: {},
+        clientInfo: { name: "accessbell-pwa-demo", version: "1.0" },
+      },
+      1,
+    );
+    addAlexaStep(fill("alexa_init", { value: init.protocolVersion || "2025-11-25" }));
+
+    const listed = await alexaRpc("tools/list", {}, 2);
+    addAlexaStep(fill("alexa_tools", { value: (listed.tools || []).length }));
+
+    const called = await alexaRpc("tools/call", { name: "get_door_alerts", arguments: { limit: 5 } }, 3);
+    const content = (called.content || [])[0];
+    const payload = content ? JSON.parse(content.text) : {};
+    const alerts = payload.alerts || [];
+    addAlexaStep(fill("alexa_alerts", { value: alerts.length }));
+    if (!alerts.length) {
+      answer.textContent = s("alexa_no_alert");
+      return;
+    }
+    const alert = alerts[0];
+    const caption = state.lang === "vi" ? alert.caption_vi : alert.caption_en;
+    const challenge = state.lang === "vi" ? alert.challenge_question_vi : alert.challenge_question_en;
+    answer.textContent = [caption, challenge].filter(Boolean).join(" ");
+    state.alexaEventId = alert.event_id;
+    reply.disabled = false;
+    announce(answer.textContent);
+  } catch (error) {
+    answer.textContent = fill("alexa_failed", { value: error.message || "error" });
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function alexaReply() {
+  if (!state.alexaEventId) return;
+  const button = $("alexa-reply");
+  button.disabled = true;
+  try {
+    await alexaRpc(
+      "tools/call",
+      { name: "send_quick_reply", arguments: { event_id: state.alexaEventId, action: "coming" } },
+      4,
+    );
+    addAlexaStep(fill("alexa_replied", { value: s("reply_coming") }));
+    announce(fill("alexa_replied", { value: s("reply_coming") }));
+  } catch (error) {
+    $("alexa-answer").textContent = fill("alexa_failed", { value: error.message || "error" });
+    button.disabled = false;
+  }
 }
 
 function wireControls() {

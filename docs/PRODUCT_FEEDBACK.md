@@ -264,6 +264,9 @@ and accessibility preferences.
   read/confirm actions.
 - Streamable HTTP is simple to run behind the existing FastAPI app.
 - A single `/mcp` endpoint with OAuth scopes keeps the surface small.
+- To demonstrate the surface without a device, the PWA has a mock-mode-only **Alexa+ MCP client
+  (simulated)** panel. It calls the real `/mcp` endpoint with `initialize`, `tools/list`, and
+  `tools/call`, and is labeled as a simulator. It is a demo harness, not a claim of device testing.
 
 **Friction**
 
@@ -280,7 +283,8 @@ and accessibility preferences.
 **Suggestions**
 
 - Publish a “known Alexa+ 401 shape” note next to the MCP auth docs.
-- Provide a local mock Alexa+ client that speaks Streamable HTTP.
+- Provide an official local mock Alexa+ client that speaks Streamable HTTP; our in-app panel is a
+  minimal stand-in, not a substitute for the real client.
 - Include a minimal OAuth 2.1 + MCP reference with service and user tiers.
 
 ---

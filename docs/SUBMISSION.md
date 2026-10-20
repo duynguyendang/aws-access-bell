@@ -73,9 +73,13 @@ MCP toolkit, and the browser/PWA surface.
 
 The recording plan and exact clicks are in [DEMO.md](DEMO.md). A **2:24 narrated local cut** is
 available at [assets/accessbell-demo.mp4](assets/accessbell-demo.mp4), with English
-[captions](accessbell-demo.srt). It uses the signed Ring v1.1 simulator, the stub triage provider, and
-no physical Ring, Fire TV, or live AWS resource. The public video URL is the remaining submission
-task; the README carries a `TODO(submission)` placeholder until it is uploaded.
+[captions](accessbell-demo.srt). The cut is **English-only**; bilingual EN+VI is documented by the
+[VI screenshot](assets/bilingual-vi.png) and the caption contract. The last product segment shows the
+in-product **Alexa+ MCP client (simulated)** panel calling the real `/mcp` endpoint: `initialize`,
+11 tools, `get_door_alerts`, and `send_quick_reply`. It uses the signed Ring v1.1 simulator, the stub
+triage provider, and no physical Ring, Fire TV, Alexa+ device, or live AWS resource. The public video
+URL is the remaining submission task; the README carries a `TODO(submission)` placeholder until it is
+uploaded.
 
 Suggested title: **AccessBell — the doorbell that checks the claim, not just the camera**.
 
@@ -83,9 +87,10 @@ Suggested description (copy/paste):
 
 > AccessBell turns a Ring door event into accessible text on the screen the resident already owns.
 > This 2:24 demo uses a signed Ring Partner API v1.1 simulator, a Gatekeeper that verifies claims
-> only against resident-created windows, EN/VI TTS-safe captions, and MCP tools for Alexa+. The
-> recording uses the deterministic stub provider; no physical Ring, Fire TV, or live AWS resource is
-> shown. Code and evidence: https://github.com/duynguyendang/aws-access-bell
+> only against resident-created windows, EN/VI TTS-safe captions, and MCP tools for Alexa+. The last
+> segment shows an in-app Alexa+ MCP client simulator calling the real endpoint; no physical device
+> is used. The recording uses the deterministic stub provider; no physical Ring, Fire TV, or live
+> AWS resource is shown. Code and evidence: https://github.com/duynguyendang/aws-access-bell
 >
 > #Accessibility #Ring #AWS #MCP #AmazonAppDev2026
 

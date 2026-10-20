@@ -16,7 +16,7 @@ the Ring-track proof: the app builds a Partner API envelope, signs it with HMAC-
 | Captions | [accessbell-demo.srt](accessbell-demo.srt) — English, timed to the narration |
 | Poster | [assets/accessbell-demo-poster.jpg](assets/accessbell-demo-poster.jpg) |
 | Narration | Edge TTS `en-US-AriaNeural`, rate `+8%`; synthetic voice, not the builder's voice |
-| Captured flow | Signed prescription delivery → Tier 1/Tier 2 evidence → police claim unverified → resident `police patrol` window → same claim verified → EN/VI toggle + fixed phrasebook → escalation consent off → title card |
+| Captured flow | Signed prescription delivery → Tier 1/Tier 2 evidence → police claim unverified → resident `police patrol` window → same claim verified → English talk panel + fixed phrasebook → escalation consent off → Alexa+ MCP client (simulated) ask + reply → title card |
 
 Cut timeline:
 
@@ -27,15 +27,23 @@ Cut timeline:
 | 0:32 | Alert card with evidence and challenge |
 | 0:53 | Police claim: `Unverified`, `Risk: high`, only `Not now` |
 | 1:19 | Resident adds `police patrol`; same claim becomes `Verified`, `Risk: low` |
-| 1:42 | VI toggle; fixed phrasebook translation |
+| 1:42 | English talk panel; D-pad focus on replies; fixed phrasebook send |
 | 2:01 | Escalation off by default; consent unchecked |
-| 2:18 | Closing card |
+| 2:04 | Alexa+ MCP client (simulated): `initialize`, 11 tools, `get door alerts` |
+| 2:09 | Spoken-style answer; **Tell them I am coming** sends `send_quick_reply` |
+| 2:16 | Closing card |
 
-The cut follows the first six beats of the shot list and closes on an end card. It does **not** include
-a terminal shot of `/health`, `/api/metrics`, or `tools/list`; those are reproducible with the
-commands in the README and [scripts/verify_mcp.py](../scripts/verify_mcp.py). It uses `LLM_PROVIDER=stub`
-so the recording is deterministic and offline. No physical Ring doorbell, Fire TV, or live AWS
-resource appears.
+The cut follows the first six beats of the shot list and adds the **Alexa+ MCP client** panel as the
+last product beat. It does **not** include a terminal shot of `/health` or `/api/metrics`; those are
+reproducible with the commands in the README. The Alexa+ panel is an in-product demo client that calls
+the real `/mcp` endpoint (`initialize`, `tools/list`, `tools/call`) and is labeled **simulated**; no
+physical Echo/Alexa+ device appears. It uses `LLM_PROVIDER=stub` so the recording is deterministic and
+offline. No physical Ring doorbell, Fire TV, or live AWS resource appears.
+
+The local cut is **English-only**. Bilingual EN+VI is documented by the caption contract, the
+[bilingual screenshot](assets/bilingual-vi.png), and the SRT, not by switching the UI to Vietnamese in
+the video. The Alexa+ panel is also pictured in
+[alexa-mcp-client.png](assets/alexa-mcp-client.png).
 
 To publish, upload this file (or a re-record with your own voice) to YouTube or Vimeo as public or
 unlisted-but-viewable, then replace the `TODO(submission)` in `README.md` and run
@@ -75,8 +83,8 @@ re-record with a live narrator or add terminal evidence.
 | 1:25-1:45 | Point at the headline, `Unverified`, `Risk: high`, and the challenge line | "The headline is not a friendly guess. It says *Visitor claims to be police. Not verified.* The challenge asks for a badge number and a callback number, and tells her not to open the door." |
 | 1:45-2:10 | Open **Door calendar**, add a window labeled `police patrol` covering now, fire the same claim again | "Same claim. This time the resident created a police-patrol window. Verified, low risk, and the caption says it matches her schedule. The gate is what she scheduled, not what the stranger said." |
 | 2:10-2:30 | Quick replies, memory suggestion, escalation countdown; press **Stop escalation** | "One tap replies at the door. The memory suggestion reuses her last choice only for the same category. Escalation is off by default, revocable, durable and audited." |
-| 2:30-2:45 | Toggle **VI**, show the same alert in Vietnamese; open **Talk to visitor**, show a fixed EN/VI phrase | "Every caption is EN and VI, TTS-safe, and short. The interpreter is a fixed-prompt phrasebook — it never fakes a free-text translation." |
-| 2:45-3:00 | Closing card: `/health` (provider + model), `/api/metrics` timers, MCP `tools/list` in a terminal | "Ring in, accessible text out. Eleven MCP tools for Alexa+, Bedrock for grounded triage, and a privacy-first design that runs in the resident's own AWS account." |
+| 2:30-2:45 | Open **Talk to visitor**, send a fixed English phrase; keep the UI in English | "Every caption is EN and VI, TTS-safe, and short. The interpreter is a fixed-prompt phrasebook — it never fakes a free-text translation. The recorded cut stays in English; the VI proof is the screenshot and the caption contract." |
+| 2:45-3:00 | **Alexa+ MCP client (simulated)**: ask, 11 tools, `get door alerts`, **Tell them I am coming**; closing card with `/health` and `/api/metrics` | "Alexa+ calls the same door tools over MCP. This is a real JSON-RPC session against `/mcp` — initialize, eleven tools, the latest alert, and a reply. Ring in, accessible text out." |
 
 ## Exact clicks
 
@@ -90,8 +98,9 @@ re-record with a live narrator or add terminal evidence.
    - click **Add window**
 5. Select `police_claim` again, click **Ring doorbell**.
 6. Click **Stop escalation** if the countdown appears.
-7. Click **VI**, then **Talk to visitor**, type `Please leave it at the door.`, click **Translate (fixed prompts only)**.
-8. End on `/health`, `/api/metrics`, or the MCP terminal.
+7. In **Talk to visitor** (language **EN**), type `Please leave it at the door.` and click **Send**.
+8. Scroll to **Alexa+ MCP client (simulated)**, click **Ask who is at the door**, then **Tell them I am coming**.
+9. End on `/health`, `/api/metrics`, or the closing card.
 
 ## What the judge should see
 
@@ -99,8 +108,11 @@ re-record with a live narrator or add terminal evidence.
   returns `signature_valid: true`).
 - The same handler for the simulator and `/webhooks/ring`.
 - Gatekeeper: unverified high-risk claim → verified only after a resident-created window.
-- EN + VI captions, urgency as text, 44 px targets, D-pad navigation.
+- EN + VI captions (documented in the bilingual screenshot and caption contract; the recorded UI stays
+  English), urgency as text, 44 px targets, D-pad navigation.
 - Consent-gated escalation that is off by default.
+- Alexa+ MCP client panel: real `/mcp` JSON-RPC, `initialize`, 11 tools, `get_door_alerts`, and
+  `send_quick_reply`; the panel is labeled **simulated**.
 - MCP tools for Alexa+ and the Bedrock/AWS deployment path.
 
 ## Do not claim
@@ -109,6 +121,8 @@ re-record with a live narrator or add terminal evidence.
   simulator plus the PWA/TV layout. The hardware path is documented, not recorded.
 - Do not say the visitor statement is a standard Ring webhook field. It is an AccessBell transcript
   extension used to exercise the Gatekeeper.
+- Do not imply the Alexa+ panel is a physical Echo/Alexa+ device. It is a local MCP client simulator
+  calling the real `/mcp` endpoint; say that plainly.
 - Do not show a deployed AWS URL unless it is actually deployed; the local `/health` and CDK source
   are enough for the AWS Builder story.
 

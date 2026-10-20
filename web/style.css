@@ -157,6 +157,7 @@ main { margin-top: 24px; display: grid; gap: 22px; }
 
 .replies { display: flex; flex-wrap: wrap; gap: 12px; }
 .replies > button { flex-shrink: 0; }
+.replies button:disabled { opacity: .55; cursor: not-allowed; }
 button { min-width: 44px; }
 
 .reply, .primary, .danger {
@@ -254,6 +255,18 @@ input, select {
 .history .h-tag { color: var(--muted); font-size: 1.05rem; text-align: right; }
 
 .demo.hidden { display: none; }
+.alexa-utterance { font-size: 1.35rem; color: var(--text); margin: 10px 0 12px; }
+.alexa-transcript { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.alexa-transcript li {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.02rem;
+  color: var(--muted);
+}
+.alexa-answer { margin-top: 12px; font-size: 1.3rem; color: var(--text); min-height: 1.4em; }
 .demo .replies { margin-top: 8px; }
 
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {

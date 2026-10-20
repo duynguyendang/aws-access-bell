@@ -33,6 +33,10 @@ year) — and adults 70+ report the highest median losses of any age group
 |---|---|
 | ![Visitor claims to be police, marked unverified with risk high and a challenge question](docs/assets/gatekeeper-unverified.png) | ![Ring simulator panel with scenario, visitor statement, and signed webhook result](docs/assets/ring-simulator.png) |
 
+| Alexa+ MCP client (simulated) |
+|---|
+| ![Alexa+ MCP client panel showing initialize, 11 tools, get door alerts, and a quick reply](docs/assets/alexa-mcp-client.png) |
+
 **Closest incumbent.** Ring Video Descriptions already turns camera events into text (subscription,
 7 languages) and Alexa+ Greetings can handle a delivery at the door. Neither adjudicates the
 visitor's *claim*: AccessBell verifies the claim against resident-created context and refuses to
@@ -74,9 +78,12 @@ curl -s -X POST "http://127.0.0.1:8080/api/simulate/ring" \
 
 What to look at: the alert caption and its **Evidence / Why** line; the Gatekeeper headline and
 challenge on the police claim; the Ring simulator panel showing the signed v1.1 webhook result; the
-grounding badge (`grounded` / `generic` / `demoted_insufficient_evidence`); the `/api/metrics`
-timers; and **Download door log** — a plain-text artifact of the day's events you can keep. A
-recording plan lives in [docs/DEMO.md](docs/DEMO.md), and a 2:24 narrated cut with SRT captions is in
+**Alexa+ MCP client (simulated)** panel showing a real `/mcp` session (`initialize`, 11 tools,
+`get door alerts`, `send_quick_reply`); the grounding badge (`grounded` / `generic` /
+`demoted_insufficient_evidence`); the `/api/metrics` timers; and **Download door log** — a plain-text
+artifact of the day's events you can keep. The local cut is English-only; the bilingual EN+VI proof is
+the [VI screenshot](docs/assets/bilingual-vi.png) and the caption contract. A recording plan lives in
+[docs/DEMO.md](docs/DEMO.md), and a 2:24 narrated cut with SRT captions is in
 `docs/assets/accessbell-demo.mp4` for review and upload. For release discipline,
 `SUBMISSION_STRICT=1 python scripts/check_docs_consistency.py` fails while the public video URL is
 still TODO.

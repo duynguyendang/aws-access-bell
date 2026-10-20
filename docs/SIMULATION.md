@@ -132,7 +132,14 @@ The replay tool sends:
 - Content-Type: `application/json`
 - Supports both Partner Envelope v1.1 and flat JSON payloads.
 
-### Step 3.2: Inspect Live SSE Stream
+### Step 3.2: In-app Alexa+ MCP client (simulated)
+
+With `MOCK_MODE=true`, the PWA includes an **Alexa+ MCP client (simulated)** panel. Click **Ask who
+is at the door**: it sends `initialize`, `tools/list`, and `tools/call` to the real `/mcp` endpoint
+and renders the transcript; **Tell them I am coming** sends `send_quick_reply`. The panel is labeled
+simulated and does not claim a physical Echo/Alexa+ device.
+
+### Step 3.3: Inspect Live SSE Stream
 
 Subscribe to the server-sent events stream in real time:
 
@@ -147,7 +154,7 @@ data: {"type": "alert_raw", "event_id": 1, "text": "Someone is at the door", "te
 data: {"type": "alert_enriched", "event_id": 1, "status": "enriched", "triage": {"category": "UNKNOWN_VISITOR", "urgency": 4, "caption_en": "Visitor claims to be police. Not verified.", "caption_vi": "Khách nói là công an. Chưa xác minh.", "grounding": "generic", "verification_status": "unverified", "risk_level": "high"}}
 ```
 
-### Step 3.3: Test MCP Tools via JSON-RPC
+### Step 3.4: Test MCP Tools via JSON-RPC
 
 Call AccessBell tools using `curl` with a bearer token:
 

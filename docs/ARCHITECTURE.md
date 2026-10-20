@@ -535,6 +535,9 @@ MCP**, not on AccessBell — Alexa+ orchestrates both.
 
 - Voice Q&A via MCP  
 - Optional announce adapter (skill / proactive path)  
+- Mock-mode-only **Alexa+ MCP client (simulated)** panel in the PWA: calls `/mcp` with
+  `initialize`, `tools/list`, and `tools/call` and renders the transcript. It is a demo harness,
+  explicitly not a physical-device test.
 
 ---
 
