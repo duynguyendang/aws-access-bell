@@ -180,6 +180,7 @@ button { min-width: 44px; }
 .reply:nth-child(4) { background: var(--blue); color: #061019; }
 
 .note { margin-top: 10px; font-size: 1.15rem; color: var(--muted); min-height: 1.4em; }
+.note.warn { color: var(--amber); }
 
 .panel h2 { font-size: 1.3rem; margin-bottom: 12px; color: var(--muted); }
 

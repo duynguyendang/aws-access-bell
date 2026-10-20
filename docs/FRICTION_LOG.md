@@ -213,11 +213,15 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
   The CDK stack, IAM role, and region were all correct, so the failure looked like an application
   bug for a while.
 - **Impact:** ~1 hour of triage. It also changed what the live instance could honestly claim.
-- **Workaround:** the deployed demo runs `LLM_PROVIDER=stub` (deterministic triage) while the CDK
-  default stays `LLM_PROVIDER=bedrock`; the app fails open to Tier 1 + Gatekeeper captions if
-  Bedrock ever errors. `scripts/check_bedrock_access.py` now probes the account before a deploy
-  (the deploy script runs it and stops with this exact error), and the tier-2 failure is logged
-  with its cause instead of only marking the event `enrichment_failed`.
+- **Workaround:** the demo instance is deployed with `LLM_PROVIDER=bedrock` anyway
+  (`ALLOW_BEDROCK_BLOCKED=1`), so the shipped stack runs the real `ChatBedrockConverse` path and
+  fails open exactly as designed: Tier 1 + Gatekeeper captions, the challenge line, and the
+  unverified/verified decision all still work, and the UI states *"Tier 2 model unavailable —
+  showing the tier 1 caption"* instead of pretending the model answered.
+  `scripts/check_bedrock_access.py` now probes the account before a deploy (the deploy script runs
+  it and stops with this exact error unless the deploy is explicitly forced), and the tier-2
+  failure is logged with its cause instead of only marking the event `enrichment_failed`. Deploying
+  with `LLM_PROVIDER=stub` remains one flag away for a deterministic demo.
 - **Evidence:** `docs/DEPLOYMENT.md` §3c, `backend/llm.py`.
 - **What would help:** a documented, scriptable way to check and request foundation-model access,
   and a clearer runtime error that says "this account has no model access" instead of an opaque

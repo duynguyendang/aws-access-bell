@@ -58,7 +58,7 @@ scripts are all part of this submission.
 | **3-minute video** | [Narrated local cut](docs/assets/accessbell-demo.mp4) (2:24) · [SRT captions](docs/accessbell-demo.srt) · public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
 | **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
-| **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1` (signed Ring simulator, deterministic triage; add `?token=<API_TOKEN>` to use the simulator and the Alexa+ client) |
+| **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1` (signed Ring simulator, Bedrock triage path, 50 rpm; add `?token=<API_TOKEN>` to use the simulator and the Alexa+ client) |
 | **Submission notes** | [docs/SUBMISSION.md](docs/SUBMISSION.md) · [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) · [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |
 
 ## Evaluate it in 3 minutes

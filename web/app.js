@@ -211,9 +211,9 @@ function secondaryCaption(triage) {
   return triage[suffix] || "";
 }
 
-function renderAlert(eventId, triage, why, childCaption, visitorStatement) {
+function renderAlert(eventId, triage, why, childCaption, visitorStatement, status) {
   state.currentEventId = eventId ?? state.currentEventId;
-  state.last = { eventId: state.currentEventId, triage, why, childCaption, visitorStatement };
+  state.last = { eventId: state.currentEventId, triage, why, childCaption, visitorStatement, status };
   const caption = currentCaption(triage);
   const secondary = secondaryCaption(triage);
   $("caption").textContent = caption;
@@ -229,6 +229,12 @@ function renderAlert(eventId, triage, why, childCaption, visitorStatement) {
     triage.confidence != null ? fill("confidence", { value: Math.round(triage.confidence * 100) }) : "";
   $("grounding").textContent = s(GROUNDING_KEY[triage.grounding] || "generic");
   $("context").textContent = triage.context_status === "timeout" ? s("context_timeout") : "";
+  const tier2Note = $("tier2-note");
+  if (tier2Note) {
+    const failed = status === "enrichment_failed";
+    tier2Note.textContent = failed ? s("tier2_unavailable") : "";
+    tier2Note.classList.toggle("hidden", !failed);
+  }
   renderEvidence(triage.evidence);
   renderVerification(triage);
   renderReplies();
@@ -454,6 +460,7 @@ function connectStream() {
         msg.why,
         (msg.caption_child || {})[state.lang],
         msg.visitor_statement,
+        msg.status,
       );
       upsertHistory(msg.event_id, {
         caption: (msg.triage && (msg.triage[`caption_${state.lang}`] || msg.triage.caption_en)) || "",
@@ -817,6 +824,7 @@ function wireControls() {
           state.last.why,
           state.last.childCaption,
           state.last.visitorStatement,
+          state.last.status,
         );
       }
     });
@@ -837,6 +845,7 @@ function wireControls() {
         state.last.why,
         state.last.childCaption,
         state.last.visitorStatement,
+        state.last.status,
       );
     }
   });
@@ -859,6 +868,7 @@ function wireControls() {
         state.last.why,
         state.last.childCaption,
         state.last.visitorStatement,
+        state.last.status,
       );
     }
     await Promise.all([loadHistory(), loadAdvise(), loadWindows(), loadShares()]);

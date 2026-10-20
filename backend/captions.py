@@ -362,6 +362,7 @@ UI = {
         "alexa_replied": "Reply sent: {value}",
         "alexa_failed": "MCP demo failed: {value}",
         "alexa_no_alert": "No alert yet. Fire a Ring event first.",
+        "tier2_unavailable": "Tier 2 model unavailable — showing the tier 1 caption.",
     },
     "vi": {
         "app_title": "Cảnh báo cửa AccessBell",
@@ -476,6 +477,7 @@ UI = {
         "alexa_replied": "Đã gửi trả lời: {value}",
         "alexa_failed": "Mô phỏng MCP thất bại: {value}",
         "alexa_no_alert": "Chưa có cảnh báo. Hãy tạo sự kiện Ring trước.",
+        "tier2_unavailable": "Không có mô hình tier 2 — đang hiện caption tier 1.",
     },
 }
 

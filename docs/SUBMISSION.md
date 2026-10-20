@@ -74,13 +74,14 @@ MCP toolkit, and the browser/PWA surface.
 **http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com** — the real CDK stack from
 this repo, deployed in `us-east-1`: ECS Fargate behind an ALB, RDS Postgres 16, a Cognito user pool
 with an OAuth 2.1 resource server, an EventBridge bus, and Secrets Manager tokens. The signed Ring
-v1.1 simulator, the Gatekeeper, the MCP server, and the PWA are all live there. The instance runs in
-mock mode (so the in-app Ring simulator and the Alexa+ client panel are usable) with the
-deterministic stub provider, because this account has no Amazon Bedrock model access; the CDK
-default stays `LLM_PROVIDER=bedrock`; `scripts/check_bedrock_access.py` probes the account before a
-deploy so the failure is reported instead of hidden. `/api/*` requires the API token — open the URL
-once with `?token=<API_TOKEN>` and the browser keeps it. Details and teardown:
-[DEPLOYMENT.md](DEPLOYMENT.md) §3c.
+v1.1 simulator, the Gatekeeper, the MCP server, and the PWA are all live there. The task runs
+`LLM_PROVIDER=bedrock` (the real `ChatBedrockConverse` path), but this account is not allowed to use
+foundation models — every Converse call returns `Error 002: Access to Bedrock models is not allowed
+for this account` — so the app fails open to Tier 1 + Gatekeeper captions and the UI states
+*"Tier 2 model unavailable"* rather than pretending the model answered.
+`scripts/check_bedrock_access.py` probes the account before a deploy so the failure is reported
+instead of hidden. `/api/*` requires the API token — open the URL once with `?token=<API_TOKEN>` and
+the browser keeps it. Details and teardown: [DEPLOYMENT.md](DEPLOYMENT.md) §3c.
 
 ## Demo video
 
