@@ -2,7 +2,7 @@ from .base import TriageLLM
 from .stub import StubLLM
 
 MODEL_DEFAULTS = {
-    "bedrock": "us.amazon.nova-lite-v1:0",
+    "bedrock": "us.amazon.nova-2-lite-v1:0",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-latest",
     "google": "gemini-2.0-flash",

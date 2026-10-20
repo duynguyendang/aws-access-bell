@@ -207,11 +207,15 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
 - **When:** submission week, during the live deploy
 - **Area:** Amazon Bedrock
 - **Severity:** S1 for the deployed demo, S3 for the code
-- **Symptom:** the task called `us.amazon.nova-lite-v1:0` and got
+- **Symptom:** the task called `us.amazon.nova-2-lite-v1:0` and got
   `Error 002: Access to Bedrock models is not allowed for this account`. `PutUseCaseForModelAccess`
   answered `Your account is not authorized to perform this action. Please create a support case`.
   The CDK stack, IAM role, and region were all correct, so the failure looked like an application
-  bug for a while.
+  bug for a while. `GetFoundationModelAvailability` pinpoints the closed gate: the model is offered
+  in the region, the account holds the entitlement, 64 of the 95 text models in `us-east-1` need no
+  EULA agreement — and **all** of them (95/95, and 68/68 across 17 regions) report
+  `authorizationStatus: NOT_AUTHORIZED`. The gate belongs to the account, so root and admin
+  principals get exactly the same answer.
 - **Impact:** ~1 hour of triage. It also changed what the live instance could honestly claim.
 - **Workaround:** the demo instance is deployed with `LLM_PROVIDER=bedrock` anyway
   (`ALLOW_BEDROCK_BLOCKED=1`), so the shipped stack runs the real `ChatBedrockConverse` path and

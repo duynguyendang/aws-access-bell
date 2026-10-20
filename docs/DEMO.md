@@ -60,7 +60,7 @@ DB_URL=sqlite:///demo.db MOCK_MODE=true LLM_PROVIDER=stub python -m backend
 ```
 
 `stub` keeps the recording deterministic and offline. If Bedrock is available, use
-`LLM_PROVIDER=bedrock LLM_MODEL=us.amazon.nova-lite-v1:0` and say "Bedrock" on camera; the UI and
+`LLM_PROVIDER=bedrock LLM_MODEL=us.amazon.nova-2-lite-v1:0` and say "Bedrock" on camera; the UI and
 evidence path are identical. Do not leave a paid AWS deployment running just for the video.
 
 Warm-up (not recorded):

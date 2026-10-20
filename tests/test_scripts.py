@@ -112,3 +112,21 @@ def test_bedrock_preflight_script_is_wired():
     )
     assert skipped.returncode == 0
     assert "not bedrock" in skipped.stdout
+
+
+def test_bedrock_preflight_reports_each_model_gate():
+    module = _load("check_bedrock_access", "scripts/check_bedrock_access.py")
+    assert module._base_model_id("us.amazon.nova-2-lite-v1:0") == "amazon.nova-2-lite-v1:0"
+    assert module._base_model_id("amazon.nova-lite-v1:0") == "amazon.nova-lite-v1:0"
+    text = module._format_availability(
+        {
+            "model": "amazon.nova-2-lite-v1",
+            "agreement": "AVAILABLE",
+            "entitlement": "AVAILABLE",
+            "region": "AVAILABLE",
+            "authorization": "NOT_AUTHORIZED",
+        }
+    )
+    assert "NOT_AUTHORIZED" in text
+    assert "authorization" in text
+    assert module._format_availability({})  # never raises on an unknown model id

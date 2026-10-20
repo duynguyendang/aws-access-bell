@@ -8,7 +8,7 @@ without a paid deployment.
 
 | Service | Role in AccessBell | Where |
 |---|---|---|
-| **Amazon Bedrock** | Tier-2 grounded triage through LangChain `ChatBedrockConverse`; default model `us.amazon.nova-lite-v1:0` | `backend/llm/factory.py`, `docs/ARCHITECTURE.md` §9 |
+| **Amazon Bedrock** | Tier-2 grounded triage through LangChain `ChatBedrockConverse`; default model `us.amazon.nova-2-lite-v1:0` | `backend/llm/factory.py`, `docs/ARCHITECTURE.md` §9 |
 | **AWS CDK (Python)** | Infrastructure as code for the whole stack | `infra/accessbell_stack.py`, `infra/app.py` |
 | **Amazon ECS Fargate** | Runs the FastAPI container; 0.25 vCPU / 0.5 GB, desired count 1 | `infra/accessbell_stack.py` |
 | **Application Load Balancer** | Public entry point; 300 s idle timeout for SSE; optional HTTPS listener | `infra/accessbell_stack.py` |

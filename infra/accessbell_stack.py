@@ -209,11 +209,11 @@ class AccessBellStack(Stack):
             "google": "GOOGLE_API_KEY",
         }.get(llm_provider)
         llm_default_model = {
-            "bedrock": "us.amazon.nova-lite-v1:0",
+            "bedrock": "us.amazon.nova-2-lite-v1:0",
             "openai": "gpt-4o-mini",
             "anthropic": "claude-3-5-haiku-latest",
             "google": "gemini-2.0-flash",
-        }.get(llm_provider, "us.amazon.nova-lite-v1:0")
+        }.get(llm_provider, "us.amazon.nova-2-lite-v1:0")
         container_image = ecs.ContainerImage.from_asset(
             repo_root,
             file="Dockerfile",

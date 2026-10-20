@@ -54,7 +54,7 @@ signs it, verifies it, and routes it through the same handler.
 ## Amazon Bedrock (via LangChain `ChatBedrockConverse`)
 
 **Used for:** Tier-2 grounded triage. The CDK stack sets `LLM_PROVIDER=bedrock` and
-`LLM_MODEL=us.amazon.nova-lite-v1:0`; the app uses `with_structured_output(TriageResult)` and
+`LLM_MODEL=us.amazon.nova-2-lite-v1:0`; the app uses `with_structured_output(TriageResult)` and
 re-validates the result.
 
 **What worked well**
@@ -70,7 +70,7 @@ re-validates the result.
 1. **Model access is account/region-specific.** A stack can synth successfully and still fail at
    runtime because the model or inference profile is not enabled. We document the model-access step,
    but the failure is easy to misread as an application bug.
-2. **Model IDs and inference-profile IDs are different shapes** (`us.amazon.nova-lite-v1:0` vs a
+2. **Model IDs and inference-profile IDs are different shapes** (`us.amazon.nova-2-lite-v1:0` vs a
    foundation-model ID). The error messages do not always distinguish “not enabled” from “wrong
    region” from “wrong ID”.
 3. **No local Bedrock emulator.** The deterministic `stub` provider is essential for tests and
@@ -80,6 +80,11 @@ re-validates the result.
    `PutUseCaseForModelAccess` answered `Your account is not authorized to perform this action.
    Please create a support case`. With a correct region, model ID, and IAM policy, that reads like
    an application bug rather than an account-state problem.
+5. **`GetFoundationModelAvailability` is the diagnostic that was missing.** It separates the four
+   gates — EULA agreement, account entitlement, region availability, and authorization — and shows
+   that in our account three are `AVAILABLE` while `authorizationStatus` is `NOT_AUTHORIZED` for
+   every model we probed (95 text models in `us-east-1`, 17 regions). A one-line "is this account
+   allowed to invoke this model" check would have saved the deploy debugging time.
 
 **Suggestions**
 

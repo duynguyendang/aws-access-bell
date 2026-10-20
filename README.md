@@ -254,7 +254,7 @@ All variables are documented in `.env.example`; the full table with platform not
 | `LLM_PROVIDER` / `LLM_MODEL` / `LLM_TIMEOUT_SECONDS` | `stub` / provider default / `5` | `stub` \| `bedrock` \| `openai` \| `anthropic` \| `google` \| `ollama`; AWS deploys use `bedrock` |
 | `DB_URL` / `DB_PATH` | `sqlite:///accessbell.db` | SQLite or Postgres; `POSTGRES_HOST/PORT/USER/PASSWORD/DB` build the DSN |
 | `PORT` / `WEB_DIR` / `MOCK_EVENTS_DIR` / `LOG_LEVEL` / `APP_ENV` | `8080` / `web` / `mock/events` / `INFO` / `development` | Runtime basics |
-| `AWS_REGION` | `us-east-1` | Bedrock region; `LLM_MODEL` defaults to `us.amazon.nova-lite-v1:0` for `bedrock` |
+| `AWS_REGION` | `us-east-1` | Bedrock region; `LLM_MODEL` defaults to `us.amazon.nova-2-lite-v1:0` for `bedrock` |
 | `EVENTBRIDGE_BUS_NAME` | – | Publish triaged events to EventBridge; empty = off |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / `OLLAMA_BASE_URL` | – | Alternative LLM providers |
 | `RING_WEBHOOK_ENABLED` / `RING_WEBHOOK_SECRET` / `RING_SIGNATURE_HEADER` | `false` / – / `X-Signature` | Webhook HMAC verification |
