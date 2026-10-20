@@ -363,6 +363,7 @@ UI = {
         "alexa_failed": "MCP demo failed: {value}",
         "alexa_no_alert": "No alert yet. Fire a Ring event first.",
         "tier2_unavailable": "Tier 2 model unavailable — showing the tier 1 caption.",
+        "api_token_required": "This demo needs an access token. Open the page with ?token=… to use the simulator and the Alexa+ client.",
     },
     "vi": {
         "app_title": "Cảnh báo cửa AccessBell",
@@ -478,6 +479,7 @@ UI = {
         "alexa_failed": "Mô phỏng MCP thất bại: {value}",
         "alexa_no_alert": "Chưa có cảnh báo. Hãy tạo sự kiện Ring trước.",
         "tier2_unavailable": "Không có mô hình tier 2 — đang hiện caption tier 1.",
+        "api_token_required": "Bản demo này cần access token. Mở trang bằng ?token=… để dùng simulator và client Alexa+.",
     },
 }
 

@@ -103,7 +103,9 @@ async function loadMeta() {
   bootTokenFromUrl();
   const health = await (await fetch("/health")).json();
   state.mockMode = Boolean(health.mock_mode);
-  const prefs = await (await fetch("/api/prefs")).json();
+  const prefsResponse = await fetch("/api/prefs");
+  const unauthorized = prefsResponse.status === 401;
+  const prefs = unauthorized ? {} : await prefsResponse.json();
   const urlLang = new URLSearchParams(window.location.search).get("lang");
   state.lang = urlLang === "vi" ? "vi" : urlLang === "en" ? "en" : prefs.language === "vi" ? "vi" : "en";
   state.mode = prefs.mode || "both";
@@ -112,6 +114,10 @@ async function loadMeta() {
   state.bilingual = localStorage.getItem("accessbell_bilingual") === "1";
   await loadStrings();
   applyStatic();
+  if (unauthorized) {
+    showApiAuthNotice();
+    setStatus("status_disconnected", "down");
+  }
 }
 
 async function loadStrings() {
@@ -124,6 +130,13 @@ async function loadStrings() {
 function setText(id, key) {
   const element = $(id);
   if (element) element.textContent = s(key);
+}
+
+function showApiAuthNotice() {
+  const banner = $("api-auth-note");
+  if (!banner) return;
+  banner.textContent = s("api_token_required");
+  banner.classList.remove("hidden");
 }
 
 function applyStatic() {

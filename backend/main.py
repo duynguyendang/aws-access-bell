@@ -158,11 +158,16 @@ def _api_token(request: Request) -> str:
     return request.cookies.get("accessbell_token", "")
 
 
+PUBLIC_API_PATHS = {"/api/ui-strings"}
+
+
 @app.middleware("http")
 async def _api_auth(request: Request, call_next):
     if settings.api_auth_disabled or not settings.api_token:
         return await call_next(request)
     if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    if request.url.path in PUBLIC_API_PATHS:
         return await call_next(request)
     if hmac.compare_digest(_api_token(request), settings.api_token):
         return await call_next(request)

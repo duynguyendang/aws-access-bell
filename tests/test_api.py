@@ -224,6 +224,10 @@ def test_api_auth_gate_when_enabled(client, monkeypatch):
     assert client.get("/api/events?token=s3cret").status_code == 200
     assert client.get("/api/events", cookies={"accessbell_token": "s3cret"}).status_code == 200
     assert client.get("/health").status_code == 200
+    # UI labels are static copy, not resident data: the page can render them and
+    # explain that actions need a token.
+    assert client.get("/api/ui-strings?lang=en").status_code == 200
+    assert client.get("/api/expected").status_code == 401
     monkeypatch.setattr(settings, "api_auth_disabled", True)
 
 
