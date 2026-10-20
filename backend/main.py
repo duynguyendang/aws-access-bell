@@ -123,16 +123,31 @@ async def _purge_loop():
             logger.exception("purge loop failed")
 
 
+def _check_production_settings() -> None:
+    """Safety net for production: the API stays behind a token unless the
+    instance is explicitly flagged as a public demo."""
+    if settings.app_env not in {"production", "prod"}:
+        return
+    if settings.api_auth_disabled and not settings.public_demo_mode:
+        raise RuntimeError("API_TOKEN required and API_AUTH_DISABLED must be false in production")
+    if not settings.api_token:
+        raise RuntimeError("API_TOKEN required in production")
+    if settings.api_auth_disabled:
+        logger.warning(
+            "PUBLIC_DEMO_MODE is on: /api/* is open to anyone. The Ring webhook and /mcp stay "
+            "protected (HMAC secret and MCP token/OAuth). Write endpoints are capped at "
+            "RATE_LIMIT_PER_MINUTE per client IP."
+        )
+    if settings.ring_webhook_enabled and not settings.ring_secret:
+        raise RuntimeError("RING_WEBHOOK_SECRET required when RING_WEBHOOK_ENABLED in production")
+    oauth = OAuthVerifier(settings)
+    if not oauth.enabled and not settings.mcp_http_token:
+        raise RuntimeError("MCP authentication required in production (configure OAuth or MCP_HTTP_TOKEN)")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if settings.app_env in {"production", "prod"}:
-        if settings.api_auth_disabled or not settings.api_token:
-            raise RuntimeError("API_TOKEN required and API_AUTH_DISABLED must be false in production")
-        if settings.ring_webhook_enabled and not settings.ring_secret:
-            raise RuntimeError("RING_WEBHOOK_SECRET required when RING_WEBHOOK_ENABLED in production")
-        oauth = OAuthVerifier(settings)
-        if not oauth.enabled and not settings.mcp_http_token:
-            raise RuntimeError("MCP authentication required in production (configure OAuth or MCP_HTTP_TOKEN)")
+    _check_production_settings()
     db.init_schema()
     purged = db.purge_older_than(settings.event_ttl_days)
     logger.info("db ready; purged %s event(s) older than %s days", purged, settings.event_ttl_days)

@@ -231,6 +231,26 @@ def test_api_auth_gate_when_enabled(client, monkeypatch):
     monkeypatch.setattr(settings, "api_auth_disabled", True)
 
 
+def test_production_requires_a_token_unless_public_demo(monkeypatch):
+    from backend import main as main_module
+
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "api_token", "s3cret")
+    monkeypatch.setattr(settings, "mcp_http_token", "mcp")
+    monkeypatch.setattr(settings, "api_auth_disabled", True)
+    monkeypatch.setattr(settings, "public_demo_mode", False)
+    with pytest.raises(RuntimeError):
+        main_module._check_production_settings()
+
+    monkeypatch.setattr(settings, "public_demo_mode", True)
+    main_module._check_production_settings()  # allowed: the open API is deliberate
+
+    monkeypatch.setattr(settings, "api_auth_disabled", False)
+    monkeypatch.setattr(settings, "api_token", "")
+    with pytest.raises(RuntimeError):
+        main_module._check_production_settings()
+
+
 def test_pwa_assets_and_index_reference(client):
     manifest = client.get("/assets/manifest.json")
     assert manifest.status_code == 200

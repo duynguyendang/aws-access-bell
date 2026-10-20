@@ -100,6 +100,7 @@ class Settings:
     quiet_hours_end: str = field(default_factory=lambda: _env("QUIET_HOURS_END"))
     api_token: str = field(default_factory=lambda: _env("API_TOKEN"))
     api_auth_disabled: bool = field(default_factory=_api_auth_disabled)
+    public_demo_mode: bool = field(default_factory=lambda: _flag("PUBLIC_DEMO_MODE", False))
     purge_interval_s: int = field(default_factory=lambda: _int("PURGE_INTERVAL_S", 86400))
     port: int = field(default_factory=lambda: _int("PORT", 8080))
 

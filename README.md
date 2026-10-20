@@ -58,14 +58,14 @@ scripts are all part of this submission.
 | **3-minute video** | [Narrated local cut](docs/assets/accessbell-demo.mp4) (2:24) · [SRT captions](docs/accessbell-demo.srt) · public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
 | **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
-| **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1` (signed Ring simulator, Bedrock triage path, 50 rpm; add `?token=<API_TOKEN>` to use the simulator and the Alexa+ client) |
+| **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1`; open demo (signed Ring simulator + Alexa+ client, 50 rpm per IP; the Ring webhook and `/mcp` stay token-protected) |
 | **Submission notes** | [docs/SUBMISSION.md](docs/SUBMISSION.md) · [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) · [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |
 
 ## Evaluate it in 3 minutes
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                        # **424 tests** (387 pass + 37 Postgres-skipped)
+python -m pytest -q                        # **425 tests** (388 pass + 37 Postgres-skipped)
 python scripts/eval_triage.py              # 46 labeled scenarios: category + Gatekeeper + memory + demotion/escalation
 python scripts/ablation_evidence.py        # grounding gate ablation (3 arms)
 python scripts/measure_latency.py          # local Tier-1 / enrichment latency (stub)
@@ -265,7 +265,7 @@ All variables are documented in `.env.example`; the full table with platform not
 | `CALENDAR_MCP_URL` / `CALENDAR_MCP_TOKEN` | – | Optional Calendar MCP join (off by default) |
 | `CONTEXT_BUDGET_MS` / `ENRICH_BUDGET_MS` | `200` / `2000` | Latency budgets (fail open) |
 | `QUIET_HOURS_START` / `QUIET_HOURS_END` | – | Calmer night phrasing (UX only, never evidence) |
-| `API_AUTH_DISABLED` / `API_TOKEN` / `DEMO_TOKEN` | `true` / – / – | Gate `/api/*` on public deploys; optional token for `/api/simulate` |
+| `API_AUTH_DISABLED` / `API_TOKEN` / `DEMO_TOKEN` / `PUBLIC_DEMO_MODE` | `true` / – / – / `false` | Gate `/api/*` on public deploys; optional token for `/api/simulate`; `PUBLIC_DEMO_MODE=true` opens `/api/*` on purpose (demo instances) |
 | `RATE_LIMIT_PER_MINUTE` / `DEBOUNCE_SECONDS` / `EVENT_TTL_DAYS` / `PURGE_INTERVAL_S` | `50` / `10` / `30` / `86400` | Limiter, dedupe, retention |
 | `NOTIFIER_PROVIDER` / `SNS_TOPIC_ARN` / `SES_SENDER_EMAIL` / `ANNOUNCE_ENABLED` | `log` / – / – / `false` | Announce / escalation transport |
 | `CERTIFICATE_ARN` / `ALEXA_CALLBACK_URLS` / `LLM_API_KEY` / `LLM_API_KEY_SECRET_NAME` | – | Deploy-only CDK inputs: ACM cert for an HTTPS Ring callback; Alexa+ auth-code callback(s); LLM key for a non-Bedrock provider (stored in Secrets Manager, never in the template) |

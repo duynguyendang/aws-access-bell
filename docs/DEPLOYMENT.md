@@ -126,7 +126,7 @@ authorization-code grant on the same app client, which is why the stack creates 
 | Demo mode | `MOCK_MODE=true` so the in-app Ring simulator and the Alexa+ client panel are visible. The task runs **`LLM_PROVIDER=bedrock`** (the real `ChatBedrockConverse` path), but **this account is not allowed to use foundation models**: every Converse call returns `Error 002: Access to Bedrock models is not allowed for this account`. The app fails open exactly as designed — Tier 1 + Gatekeeper captions, the challenge line, and the unverified/verified decision still work — and the UI says *"Tier 2 model unavailable — showing the tier 1 caption"* instead of pretending the model answered. A Bedrock-capable account needs no code change |
 | Limits | `RATE_LIMIT_PER_MINUTE=50` (per client IP) on the write and demo endpoints; `API_TOKEN` on every `/api/*` route |
 | Bedrock preflight | `scripts/check_bedrock_access.py` probes `InvokeModel` for the account before a deploy. `scripts/deploy_aws.sh` runs it when `LLM_PROVIDER=bedrock` and stops with the account error instead of shipping a stack whose events all land in `enrichment_failed` (`ALLOW_BEDROCK_BLOCKED=1` overrides, which is how this demo instance was deployed) |
-| Access | the UI is public; `/api/*` needs the API token. Open `/?token=<API_TOKEN>` once and the browser keeps it in the `accessbell_token` cookie. The token lives in Secrets Manager (`ApiTokenSecretArn` output) and is **not** committed |
+| Access | **open**: the instance runs `API_AUTH_DISABLED=true` + `PUBLIC_DEMO_MODE=true`, so the plain URL works for anyone (no token, no `?token=`). The Ring webhook (HMAC) and `/mcp` (Cognito OAuth / `MCP_HTTP_TOKEN`) stay protected. Writes are capped at 50 requests/minute per client IP |
 | HTTPS | disabled (no ACM certificate in this account). Ring requires an HTTPS callback, so a real Ring app needs `CERTIFICATE_ARN` |
 | Teardown | `cdk destroy` in `infra/`, or `aws cloudformation delete-stack --stack-name AccessBellStack` (RDS and the secrets use `RemovalPolicy.DESTROY`) |
 
@@ -182,7 +182,7 @@ behind it. The stack name is the same, but each account gets its own stack and i
 | Runtime | `APP_ENV`, `PORT`, `WEB_DIR`, `LOG_LEVEL`, `MOCK_MODE`, `FORWARDED_ALLOW_IPS` |
 | Storage | `DB_URL` (or `DB_PATH`) |
 | LLM / AWS | `LLM_PROVIDER`, `LLM_MODEL`, `*_API_KEY`, `AWS_REGION`, `LLM_TIMEOUT_SECONDS`, `EVENTBRIDGE_BUS_NAME` |
-| API auth (REST/SSE) | `API_AUTH_DISABLED`, `API_TOKEN` |
+| API auth (REST/SSE) | `API_AUTH_DISABLED`, `API_TOKEN`, `PUBLIC_DEMO_MODE` |
 | MCP / auth | `MCP_HTTP_TOKEN`, `MCP_ORIGIN`, `OAUTH_ISSUER`, `OAUTH_JWKS_URL`, `OAUTH_AUDIENCE`, `OAUTH_CLIENT_IDS`, `OAUTH_SCOPE_PREFIX`, `MCP_RESOURCE`, `OAUTH_REQUIRE_RESOURCE`, `CF_ACCESS_JWT_ENABLED`, `MCP_401_WWW_AUTHENTICATE` |
 | Outbound notifications | `NOTIFIER_PROVIDER`, `SNS_TOPIC_ARN`, `SES_SENDER_EMAIL`, `ANNOUNCE_ENABLED` |
 | Ring | `RING_WEBHOOK_ENABLED`, `RING_WEBHOOK_SECRET`, `RING_SIGNATURE_HEADER`, `RING_API_BASE_URL`, `RING_ACCOUNT_TOKEN` |
@@ -219,6 +219,21 @@ aws secretsmanager get-secret-value --secret-id <ApiTokenSecretArn output> --que
 
 **A public deploy must set `API_AUTH_DISABLED=false` and a strong `API_TOKEN`** — otherwise door
 history, escalation contacts and share actions are open to anyone who has the URL.
+
+A **public demo instance** (the hackathon live instance) is the deliberate exception: it runs
+`API_AUTH_DISABLED=true` together with `PUBLIC_DEMO_MODE=true`, which is the only way the app may
+start with an open API in `APP_ENV=production`. What stays protected even then:
+
+| Surface | Guard in public-demo mode |
+|---|---|
+| `/webhooks/ring` | HMAC `RING_WEBHOOK_SECRET` — unchanged |
+| `/mcp` | OAuth 2.1 (Cognito) or `MCP_HTTP_TOKEN` — unchanged |
+| `/api/simulate`, `/api/simulate/ring`, `/api/demo/mcp`, `/webhooks/ring` | per-IP limiter, `RATE_LIMIT_PER_MINUTE=50` |
+| read-only routes (`/api/events`, `/api/metrics`, `/api/brief`, …) | open, synthetic demo data only |
+
+So the trade-off is explicit: anyone can fire demo Ring events and add door-calendar windows on that
+one instance (which is what a judge needs to try the flow), while the webhook and the MCP tools stay
+token-protected. The instance is disposable — `cdk destroy` removes it.
 
 ---
 
