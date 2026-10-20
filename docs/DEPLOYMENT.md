@@ -76,18 +76,6 @@ Retention: `EVENT_TTL_DAYS` (default 30) purged at startup; no video is stored.
 Required for MCP over the public internet: **HTTPS + OAuth 2.1**. During development, use
 `cloudflared tunnel` to get a public URL.
 
-### 3c. Live demo instance (this submission)
-
-| | |
-|---|---|
-| URL | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com |
-| Region / stack | `us-east-1` · `AccessBellStack` (CDK, `scripts/deploy_aws.sh us-east-1`) |
-| What is real | ECS Fargate task (public subnet, ALB target group), RDS Postgres 16 (`db.t4g.micro`), Cognito user pool + OAuth 2.1 resource server, EventBridge bus, Secrets Manager tokens, CloudWatch logs, the signed Ring v1.1 simulator, the MCP server, and the Gatekeeper |
-| Demo mode | `MOCK_MODE=true` so the in-app Ring simulator and the Alexa+ client panel are visible; `LLM_PROVIDER=stub` so triage is deterministic and free — **this account has no Amazon Bedrock model access** (`Access to Bedrock models is not allowed for this account`), so the live instance runs the stub provider. The CDK default is still `LLM_PROVIDER=bedrock`; a Bedrock-capable account gets grounded Bedrock captions with no code change |
-| Access | the UI is public; `/api/*` needs the API token. Open `/?token=<API_TOKEN>` once and the browser keeps it in the `accessbell_token` cookie. The token lives in Secrets Manager (`ApiTokenSecretArn` output) and is **not** committed |
-| HTTPS | disabled (no ACM certificate in this account). Ring requires an HTTPS callback, so a real Ring app needs `CERTIFICATE_ARN` |
-| Teardown | `cdk destroy` in `infra/`, or `aws cloudformation delete-stack --stack-name AccessBellStack` (RDS and the secrets use `RemovalPolicy.DESTROY`) |
-
 ### 3b. Portability matrix
 
 The *stack* is portable; the *integration surface* is Amazon. AWS-native pieces (Bedrock, Cognito)
@@ -128,6 +116,39 @@ authorization-code grant on the same app client, which is why the stack creates 
 
 ---
 
+### 3c. Live demo instance (this submission)
+
+| | |
+|---|---|
+| URL | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com |
+| Region / stack | `us-east-1` · `AccessBellStack` (CDK, `scripts/deploy_aws.sh us-east-1`) |
+| What is real | ECS Fargate task (public subnet, ALB target group), RDS Postgres 16 (`db.t4g.micro`), Cognito user pool + OAuth 2.1 resource server, EventBridge bus, Secrets Manager tokens, CloudWatch logs, the signed Ring v1.1 simulator, the MCP server, and the Gatekeeper |
+| Demo mode | `MOCK_MODE=true` so the in-app Ring simulator and the Alexa+ client panel are visible; `LLM_PROVIDER=stub` so triage is deterministic and free — **this account has no Amazon Bedrock model access** (`Access to Bedrock models is not allowed for this account`), so the live instance runs the stub provider. The CDK default is still `LLM_PROVIDER=bedrock`; a Bedrock-capable account gets grounded Bedrock captions with no code change |
+| Limits | `RATE_LIMIT_PER_MINUTE=50` (per client IP) on the write and demo endpoints; `API_TOKEN` on every `/api/*` route |
+| Bedrock preflight | `scripts/check_bedrock_access.py` probes `InvokeModel` for the account before a deploy. `scripts/deploy_aws.sh` runs it when `LLM_PROVIDER=bedrock` and stops with the account error instead of shipping a stack whose events all land in `enrichment_failed` (`ALLOW_BEDROCK_BLOCKED=1` overrides) |
+| Access | the UI is public; `/api/*` needs the API token. Open `/?token=<API_TOKEN>` once and the browser keeps it in the `accessbell_token` cookie. The token lives in Secrets Manager (`ApiTokenSecretArn` output) and is **not** committed |
+| HTTPS | disabled (no ACM certificate in this account). Ring requires an HTTPS callback, so a real Ring app needs `CERTIFICATE_ARN` |
+| Teardown | `cdk destroy` in `infra/`, or `aws cloudformation delete-stack --stack-name AccessBellStack` (RDS and the secrets use `RemovalPolicy.DESTROY`) |
+
+### 3d. Running the demo with a real LLM provider
+
+The Bedrock path is the default, but a Bedrock-capable account is not always available (see
+`scripts/check_bedrock_access.py`). The same triage code runs on any LangChain provider, so the
+deployed demo can use a hosted model instead:
+
+```bash
+# 1. store the key in Secrets Manager (it never reaches the CloudFormation template)
+aws secretsmanager create-secret --name AccessBellLlmApiKey --secret-string "$LLM_API_KEY"
+
+# 2. deploy with that provider; the stack injects OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY
+LLM_PROVIDER=openai LLM_API_KEY_SECRET_NAME=AccessBellLlmApiKey scripts/deploy_aws.sh us-east-1
+```
+
+`LLM_PROVIDER=openai|anthropic|google|ollama` also rebuilds the image with the provider SDKs
+(`INSTALL_LLM=true`). `LLM_API_KEY=<key>` alone is enough — the deploy script creates or updates the
+secret first. The provider-specific model defaults are `gpt-4o-mini`, `claude-3-5-haiku-latest`, and
+`gemini-2.0-flash`; override with `LLM_MODEL`.
+
 ## 4. Scaling & reliability constraints
 
 | Situation | Requirement |
@@ -155,7 +176,7 @@ authorization-code grant on the same app client, which is why the stack creates 
 | Calendar MCP (J2, optional) | `CALENDAR_MCP_URL`, `CALENDAR_MCP_TOKEN` |
 | Latency budgets | `CONTEXT_BUDGET_MS`, `ENRICH_BUDGET_MS`, `QUIET_HOURS_START`, `QUIET_HOURS_END` |
 | Ops | `DEMO_TOKEN`, `RATE_LIMIT_PER_MINUTE`, `DEBOUNCE_SECONDS`, `EVENT_TTL_DAYS`, `PURGE_INTERVAL_S` |
-| AWS deploy only (not read by the app) | `CERTIFICATE_ARN`, `ALEXA_CALLBACK_URLS` |
+| AWS deploy only (not read by the app) | `CERTIFICATE_ARN`, `ALEXA_CALLBACK_URLS`, `LLM_API_KEY`, `LLM_API_KEY_SECRET_NAME` |
 
 Secrets: **GCP Secret Manager** (`--set-secrets`), **AWS SSM/Secrets Manager**, **Cloudflare**
 (`wrangler secret put`), or a local `.env` (never committed).

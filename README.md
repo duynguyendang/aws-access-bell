@@ -65,11 +65,12 @@ scripts are all part of this submission.
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                        # **422 tests** (385 pass + 37 Postgres-skipped)
+python -m pytest -q                        # **423 tests** (386 pass + 37 Postgres-skipped)
 python scripts/eval_triage.py              # 46 labeled scenarios: category + Gatekeeper + memory + demotion/escalation
 python scripts/ablation_evidence.py        # grounding gate ablation (3 arms)
 python scripts/measure_latency.py          # local Tier-1 / enrichment latency (stub)
 python scripts/verify_mcp.py               # boots the app, then initialize / tools/list / tools/call
+python scripts/check_bedrock_access.py     # probes whether this account can actually invoke a Bedrock model
 DB_URL=sqlite:///demo.db MOCK_MODE=true python -m backend &   # then:
 curl -s -X POST "http://127.0.0.1:8080/api/simulate/ring" \
   -H "Content-Type: application/json" -d '{"scenario":"police_claim"}'
@@ -265,9 +266,9 @@ All variables are documented in `.env.example`; the full table with platform not
 | `CONTEXT_BUDGET_MS` / `ENRICH_BUDGET_MS` | `200` / `2000` | Latency budgets (fail open) |
 | `QUIET_HOURS_START` / `QUIET_HOURS_END` | – | Calmer night phrasing (UX only, never evidence) |
 | `API_AUTH_DISABLED` / `API_TOKEN` / `DEMO_TOKEN` | `true` / – / – | Gate `/api/*` on public deploys; optional token for `/api/simulate` |
-| `RATE_LIMIT_PER_MINUTE` / `DEBOUNCE_SECONDS` / `EVENT_TTL_DAYS` / `PURGE_INTERVAL_S` | `30` / `10` / `30` / `86400` | Limiter, dedupe, retention |
+| `RATE_LIMIT_PER_MINUTE` / `DEBOUNCE_SECONDS` / `EVENT_TTL_DAYS` / `PURGE_INTERVAL_S` | `50` / `10` / `30` / `86400` | Limiter, dedupe, retention |
 | `NOTIFIER_PROVIDER` / `SNS_TOPIC_ARN` / `SES_SENDER_EMAIL` / `ANNOUNCE_ENABLED` | `log` / – / – / `false` | Announce / escalation transport |
-| `CERTIFICATE_ARN` / `ALEXA_CALLBACK_URLS` | – | Deploy-only CDK inputs: ACM cert for an HTTPS Ring callback; Alexa+ auth-code callback(s) |
+| `CERTIFICATE_ARN` / `ALEXA_CALLBACK_URLS` / `LLM_API_KEY` / `LLM_API_KEY_SECRET_NAME` | – | Deploy-only CDK inputs: ACM cert for an HTTPS Ring callback; Alexa+ auth-code callback(s); LLM key for a non-Bedrock provider (stored in Secrets Manager, never in the template) |
 | `FORWARDED_ALLOW_IPS` | empty | Trusted proxy IPs/CIDRs for the real client IP; empty ignores `X-Forwarded-For`; `*` trusts any peer |
 
 ## Who it is for

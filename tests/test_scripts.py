@@ -94,3 +94,21 @@ def test_eval_triage_cases_cover_all_categories():
         "UNKNOWN_VISITOR",
         "MOTION_ANOMALY",
     }
+
+
+def test_bedrock_preflight_script_is_wired():
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "check_bedrock_access.py"), "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    for flag in ("--provider", "--model", "--region"):
+        assert flag in result.stdout
+    skipped = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "check_bedrock_access.py"), "--provider", "stub"],
+        capture_output=True,
+        text=True,
+    )
+    assert skipped.returncode == 0
+    assert "not bedrock" in skipped.stdout

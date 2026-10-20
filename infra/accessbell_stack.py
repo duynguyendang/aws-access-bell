@@ -202,9 +202,24 @@ class AccessBellStack(Stack):
         )
 
         repo_root = str(Path(__file__).resolve().parents[1])
+        llm_provider = os.getenv("LLM_PROVIDER", "bedrock")
+        llm_key_env = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "google": "GOOGLE_API_KEY",
+        }.get(llm_provider)
+        llm_default_model = {
+            "bedrock": "us.amazon.nova-lite-v1:0",
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-3-5-haiku-latest",
+            "google": "gemini-2.0-flash",
+        }.get(llm_provider, "us.amazon.nova-lite-v1:0")
         container_image = ecs.ContainerImage.from_asset(
             repo_root,
             file="Dockerfile",
+            build_args={
+                "INSTALL_LLM": "true" if llm_provider in {"openai", "anthropic", "google", "ollama"} else "false",
+            },
         )
 
         log_group = logs.LogGroup(
@@ -219,6 +234,23 @@ class AccessBellStack(Stack):
         jwks_url = f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}/.well-known/jwks.json"
         issuer_url = f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}"
 
+        container_secrets = {
+            "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(
+                db_secret, "password"
+            ),
+            "API_TOKEN": ecs.Secret.from_secrets_manager(api_token_secret, "token"),
+            "MCP_HTTP_TOKEN": ecs.Secret.from_secrets_manager(mcp_token_secret, "token"),
+            "RING_WEBHOOK_SECRET": ecs.Secret.from_secrets_manager(webhook_secret, "token"),
+        }
+        llm_key_secret_name = os.getenv("LLM_API_KEY_SECRET_NAME", "")
+        if llm_key_secret_name and llm_key_env:
+            llm_key_secret = secretsmanager.Secret.from_secret_name_v2(
+                self, "AccessBellLlmApiKey", llm_key_secret_name
+            )
+            container_secrets[llm_key_env] = ecs.Secret.from_secrets_manager(
+                llm_key_secret
+            )
+
         container = task_def.add_container(
             "AccessBellContainer",
             image=container_image,
@@ -231,8 +263,9 @@ class AccessBellStack(Stack):
                 "POSTGRES_DB": "accessbell",
                 "API_AUTH_DISABLED": "false",
                 "RING_WEBHOOK_ENABLED": "true",
-                "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "bedrock"),
-                "LLM_MODEL": os.getenv("LLM_MODEL", "us.amazon.nova-lite-v1:0"),
+                "LLM_PROVIDER": llm_provider,
+                "LLM_MODEL": os.getenv("LLM_MODEL", llm_default_model),
+                "RATE_LIMIT_PER_MINUTE": os.getenv("RATE_LIMIT_PER_MINUTE", "50"),
                 "NOTIFIER_PROVIDER": "sns",
                 "FORWARDED_ALLOW_IPS": vpc.vpc_cidr_block,
                 "EVENTBRIDGE_BUS_NAME": event_bus.event_bus_name,
@@ -242,14 +275,7 @@ class AccessBellStack(Stack):
                 "OAUTH_SCOPE_PREFIX": "accessbell/",
                 "MCP_ORIGIN": "https://alexa.amazon.com,https://developer.amazon.com",
             },
-            secrets={
-                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(
-                    db_secret, "password"
-                ),
-                "API_TOKEN": ecs.Secret.from_secrets_manager(api_token_secret, "token"),
-                "MCP_HTTP_TOKEN": ecs.Secret.from_secrets_manager(mcp_token_secret, "token"),
-                "RING_WEBHOOK_SECRET": ecs.Secret.from_secrets_manager(webhook_secret, "token"),
-            },
+            secrets=container_secrets,
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix="accessbell",
                 log_group=log_group,

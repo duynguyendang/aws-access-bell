@@ -19,7 +19,35 @@ fi
 
 REGION="${1:-${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}}"
 STACK_NAME="${STACK_NAME:-AccessBellStack}"
+LLM_PROVIDER="${LLM_PROVIDER:-bedrock}"
 CDK_CONTEXT_ARGS=()
+
+if [ "${LLM_PROVIDER}" = "bedrock" ]; then
+  echo "=== Bedrock preflight (provider=bedrock) ==="
+  PREFLIGHT_PY="python3"
+  if [ -x "${REPO_ROOT}/.venv/bin/python" ]; then
+    PREFLIGHT_PY="${REPO_ROOT}/.venv/bin/python"
+  fi
+  if ! "${PREFLIGHT_PY}" "${REPO_ROOT}/scripts/check_bedrock_access.py" --provider bedrock --region "${REGION}"; then
+    if [ "${ALLOW_BEDROCK_BLOCKED:-0}" = "1" ]; then
+      echo "WARNING: continuing anyway (ALLOW_BEDROCK_BLOCKED=1); events will be stored as enrichment_failed."
+    else
+      echo "Error: this account cannot use Bedrock foundation models." >&2
+      echo "       Re-run with ALLOW_BEDROCK_BLOCKED=1 to deploy anyway, or deploy with" >&2
+      echo "       LLM_PROVIDER=stub for the deterministic triage provider." >&2
+      exit 1
+    fi
+  fi
+fi
+
+if [ -n "${LLM_API_KEY:-}" ] && [ -z "${LLM_API_KEY_SECRET_NAME:-}" ]; then
+  LLM_API_KEY_SECRET_NAME="AccessBellLlmApiKey"
+  export LLM_API_KEY_SECRET_NAME
+  aws secretsmanager describe-secret --secret-id "${LLM_API_KEY_SECRET_NAME}" --region "${REGION}" >/dev/null 2>&1 \
+    || aws secretsmanager create-secret --name "${LLM_API_KEY_SECRET_NAME}" --secret-string "${LLM_API_KEY}" --region "${REGION}" >/dev/null
+  aws secretsmanager put-secret-value --secret-id "${LLM_API_KEY_SECRET_NAME}" --secret-string "${LLM_API_KEY}" --region "${REGION}" >/dev/null
+  echo "LLM API key stored in Secrets Manager: ${LLM_API_KEY_SECRET_NAME}"
+fi
 
 if [ -n "${CERTIFICATE_ARN:-}" ]; then
   CDK_CONTEXT_ARGS+=("-c" "certificate_arn=${CERTIFICATE_ARN}")

@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import time
 from enum import Enum
@@ -20,6 +21,8 @@ from .webhook import extract_payload_hints, extract_visitor_statement
 KNOWN_EVIDENCE_SOURCES = frozenset(
     {"doorbell", "motion", "expected_context", "calendar", "time_pattern", "user_label", "visitor_statement"}
 )
+
+logger = logging.getLogger("accessbell.triage")
 
 CLAIM_KEYWORDS = {
     "police": ["police", "officer", "cop"],
@@ -237,7 +240,12 @@ class EnrichmentPipeline:
                 labels=labels,
                 calendar=calendar,
             )
-        except Exception:
+        except Exception as exc:
+            logger.exception(
+                "tier 2 triage failed (%s): %s; falling back to tier 1",
+                getattr(self._llm, "name", "llm"),
+                exc,
+            )
             fallback = self._rules.classify(event["kind"])
             fallback.context_status = context_status
             return self._apply_verification_and_memory(
@@ -246,6 +254,7 @@ class EnrichmentPipeline:
         try:
             result = TriageResult.model_validate(payload)
         except ValidationError:
+            logger.exception("tier 2 output failed the TriageResult contract; falling back to tier 1")
             fallback = self._rules.classify(event["kind"])
             fallback.context_status = context_status
             return self._apply_verification_and_memory(

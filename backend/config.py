@@ -104,7 +104,7 @@ class Settings:
     port: int = field(default_factory=lambda: _int("PORT", 8080))
 
     demo_token: str = field(default_factory=lambda: _env("DEMO_TOKEN"))
-    rate_limit_per_minute: int = field(default_factory=lambda: _int("RATE_LIMIT_PER_MINUTE", 30))
+    rate_limit_per_minute: int = field(default_factory=lambda: _int("RATE_LIMIT_PER_MINUTE", 50))
     debounce_seconds: int = field(default_factory=lambda: _int("DEBOUNCE_SECONDS", 10))
     event_ttl_days: int = field(default_factory=lambda: _int("EVENT_TTL_DAYS", 30))
     announce_enabled: bool = field(default_factory=lambda: _flag("ANNOUNCE_ENABLED", False))

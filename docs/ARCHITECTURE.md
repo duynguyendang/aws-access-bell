@@ -560,7 +560,7 @@ MCP**, not on AccessBell — Alexa+ orchestrates both.
 | Idempotency | Dropped if `meta.request_id` was already seen (Partner API retries) |
 | Debounce | Else dedupe by `device_id + kind` within `DEBOUNCE_SECONDS` (default 10 s) |
 | Time | Event time from `data.attributes.timestamp` (device), then `meta.time` |
-| Rate limit | Per-IP limiter on `/webhooks/ring` (`RATE_LIMIT_PER_MINUTE`) |
+| Rate limit | Per-IP limiter (`RATE_LIMIT_PER_MINUTE`, default 50) on `/webhooks/ring`, the simulator endpoints, `/api/demo/mcp`, and the share/expected-context writes |
 
 **Signature scheme (`backend/webhook.py`):**
 
@@ -677,7 +677,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (422 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (423 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 

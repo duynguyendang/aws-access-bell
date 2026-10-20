@@ -57,7 +57,7 @@ See [AWS.md](AWS.md) for exactly what was and was not run.
 
 | Criterion | Evidence |
 |---|---|
-| **Technical implementation** | Ring v1.1 HMAC ingest + signed in-app simulator; pydantic-validated LLM output; grounding demotion in code; Gatekeeper verification against resident context; durable at-most-once escalation; portable SQLite/Postgres; 422 collected tests (385 pass locally, 37 Postgres-skipped); 46-case gatekeeper/grounding eval with 46/46 passing |
+| **Technical implementation** | Ring v1.1 HMAC ingest + signed in-app simulator; pydantic-validated LLM output; grounding demotion in code; Gatekeeper verification against resident context; durable at-most-once escalation; portable SQLite/Postgres; 423 collected tests (386 pass locally, 37 Postgres-skipped); 46-case gatekeeper/grounding eval with 46/46 passing |
 | **Design** | TV-first PWA with large captions, urgency as text + color, 44 px targets, D-pad traversal, EN/VI bilingual mode, child mode, claim-specific headlines and challenges; pa11y WCAG2AA in CI |
 | **Potential impact** | Built for a specific, underserved user (deaf/hard-of-hearing older adults living alone); addresses imposter scams with a measurable gate rather than a friendly guess; FTC 2024 data on imposter losses cited in the README |
 | **Quality of the idea** | The differentiator is not another camera feed or captioning layer: it is **claim adjudication** against what the resident scheduled. The Gatekeeper is visible in the headline, not buried in settings |
@@ -77,9 +77,10 @@ with an OAuth 2.1 resource server, an EventBridge bus, and Secrets Manager token
 v1.1 simulator, the Gatekeeper, the MCP server, and the PWA are all live there. The instance runs in
 mock mode (so the in-app Ring simulator and the Alexa+ client panel are usable) with the
 deterministic stub provider, because this account has no Amazon Bedrock model access; the CDK
-default stays `LLM_PROVIDER=bedrock`. `/api/*` requires the API token — open the URL once with
-`?token=<API_TOKEN>` and the browser keeps it. Details and teardown: [DEPLOYMENT.md](DEPLOYMENT.md)
-§3c.
+default stays `LLM_PROVIDER=bedrock`; `scripts/check_bedrock_access.py` probes the account before a
+deploy so the failure is reported instead of hidden. `/api/*` requires the API token — open the URL
+once with `?token=<API_TOKEN>` and the browser keeps it. Details and teardown:
+[DEPLOYMENT.md](DEPLOYMENT.md) §3c.
 
 ## Demo video
 
