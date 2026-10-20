@@ -57,7 +57,7 @@ See [AWS.md](AWS.md) for exactly what was and was not run.
 
 | Criterion | Evidence |
 |---|---|
-| **Technical implementation** | Ring v1.1 HMAC ingest + signed in-app simulator; pydantic-validated LLM output; grounding demotion in code; Gatekeeper verification against resident context; durable at-most-once escalation; portable SQLite/Postgres; 419 collected tests (382 pass locally, 37 Postgres-skipped); 46-case gatekeeper/grounding eval with 46/46 passing |
+| **Technical implementation** | Ring v1.1 HMAC ingest + signed in-app simulator; pydantic-validated LLM output; grounding demotion in code; Gatekeeper verification against resident context; durable at-most-once escalation; portable SQLite/Postgres; 422 collected tests (385 pass locally, 37 Postgres-skipped); 46-case gatekeeper/grounding eval with 46/46 passing |
 | **Design** | TV-first PWA with large captions, urgency as text + color, 44 px targets, D-pad traversal, EN/VI bilingual mode, child mode, claim-specific headlines and challenges; pa11y WCAG2AA in CI |
 | **Potential impact** | Built for a specific, underserved user (deaf/hard-of-hearing older adults living alone); addresses imposter scams with a measurable gate rather than a friendly guess; FTC 2024 data on imposter losses cited in the README |
 | **Quality of the idea** | The differentiator is not another camera feed or captioning layer: it is **claim adjudication** against what the resident scheduled. The Gatekeeper is visible in the headline, not buried in settings |
@@ -69,17 +69,29 @@ Every API, SDK, and tool used is covered in [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBA
 Ring Partner API, Bedrock, CDK, ECS/Fargate, RDS, Cognito, EventBridge, SNS/SES, MCP, the Alexa+
 MCP toolkit, and the browser/PWA surface.
 
+## Live demo instance (AWS)
+
+**http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com** — the real CDK stack from
+this repo, deployed in `us-east-1`: ECS Fargate behind an ALB, RDS Postgres 16, a Cognito user pool
+with an OAuth 2.1 resource server, an EventBridge bus, and Secrets Manager tokens. The signed Ring
+v1.1 simulator, the Gatekeeper, the MCP server, and the PWA are all live there. The instance runs in
+mock mode (so the in-app Ring simulator and the Alexa+ client panel are usable) with the
+deterministic stub provider, because this account has no Amazon Bedrock model access; the CDK
+default stays `LLM_PROVIDER=bedrock`. `/api/*` requires the API token — open the URL once with
+`?token=<API_TOKEN>` and the browser keeps it. Details and teardown: [DEPLOYMENT.md](DEPLOYMENT.md)
+§3c.
+
 ## Demo video
 
 The recording plan and exact clicks are in [DEMO.md](DEMO.md). A **2:24 narrated local cut** is
 available at [assets/accessbell-demo.mp4](assets/accessbell-demo.mp4), with English
 [captions](accessbell-demo.srt). The cut is **English-only**; bilingual EN+VI is documented by the
 [VI screenshot](assets/bilingual-vi.png) and the caption contract. The last product segment shows the
-in-product **Alexa+ MCP client (simulated)** panel calling the real `/mcp` endpoint: `initialize`,
-11 tools, `get_door_alerts`, and `send_quick_reply`. It uses the signed Ring v1.1 simulator, the stub
-triage provider, and no physical Ring, Fire TV, Alexa+ device, or live AWS resource. The public video
-URL is the remaining submission task; the README carries a `TODO(submission)` placeholder until it is
-uploaded.
+in-product **Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+:
+`initialize`, 11 tools, `get_door_alerts`, and `send_quick_reply`. It uses the signed Ring v1.1
+simulator, the stub triage provider, and no physical Ring, Fire TV, Alexa+ device, or live AWS
+resource. The public video URL is the remaining submission task; the README carries a
+`TODO(submission)` placeholder until it is uploaded.
 
 Suggested title: **AccessBell — the doorbell that checks the claim, not just the camera**.
 

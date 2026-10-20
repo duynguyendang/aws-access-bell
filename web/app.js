@@ -697,14 +697,19 @@ function buildAlexaDemo() {
 }
 
 async function alexaRpc(method, params, id) {
-  const response = await fetch("/mcp", {
+  const payload = JSON.stringify({ jsonrpc: "2.0", id, method, params });
+  const options = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
-  });
+    body: payload,
+  };
+  let response = await fetch("/mcp", options);
+  if (response.status === 401 || response.status === 403) {
+    response = await fetch("/api/demo/mcp", options);
+  }
   if (!response.ok) throw new Error(String(response.status));
   const body = await response.json();
-  if (body.error) throw new Error(body.error.message || s("alexa_failed"));
+  if (body.error) throw new Error(body.error.message || "error");
   return body.result || {};
 }
 

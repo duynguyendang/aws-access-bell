@@ -7,7 +7,7 @@ os.environ.setdefault("LLM_PROVIDER", "stub")
 if "DB_URL" not in os.environ:
     os.environ["DB_URL"] = f"sqlite:////tmp/accessbell_esc_{uuid.uuid4().hex}.db"
 if "RATE_LIMIT_PER_MINUTE" not in os.environ:
-    os.environ["RATE_LIMIT_PER_MINUTE"] = "1000"
+    os.environ["RATE_LIMIT_PER_MINUTE"] = "100000"
 
 import asyncio
 

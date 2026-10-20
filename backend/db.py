@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -55,12 +56,25 @@ class Database:
             self._conn.commit()
             return self._dialect.last_id(cur)
 
-    def init_schema(self):
+    def init_schema(self, retries: int = 3, delay: float = 2.0):
         script = (SCHEMA_DIR / f"schema.{self._dialect.name}.sql").read_text(encoding="utf-8")
-        with self._write() as conn:
-            self._dialect.recover_schema(conn)
-            conn.executescript(script)
-            self._conn.commit()
+        last_exc = None
+        for attempt in range(retries):
+            try:
+                with self._write() as conn:
+                    self._dialect.recover_schema(conn)
+                    conn.executescript(script)
+                    self._conn.commit()
+                return
+            except Exception as exc:
+                last_exc = exc
+                try:
+                    self._conn.rollback()
+                except Exception:
+                    pass
+                if attempt < retries - 1:
+                    time.sleep(delay)
+        raise last_exc
 
     def close(self):
         with self._lock:

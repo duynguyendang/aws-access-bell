@@ -3,6 +3,7 @@ import uuid
 
 if "DB_URL" not in os.environ:
     os.environ["DB_URL"] = f"sqlite:////tmp/accessbell_test_{uuid.uuid4().hex}.db"
+os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "100000")
 
 import pytest
 

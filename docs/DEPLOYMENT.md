@@ -76,6 +76,18 @@ Retention: `EVENT_TTL_DAYS` (default 30) purged at startup; no video is stored.
 Required for MCP over the public internet: **HTTPS + OAuth 2.1**. During development, use
 `cloudflared tunnel` to get a public URL.
 
+### 3c. Live demo instance (this submission)
+
+| | |
+|---|---|
+| URL | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com |
+| Region / stack | `us-east-1` · `AccessBellStack` (CDK, `scripts/deploy_aws.sh us-east-1`) |
+| What is real | ECS Fargate task (public subnet, ALB target group), RDS Postgres 16 (`db.t4g.micro`), Cognito user pool + OAuth 2.1 resource server, EventBridge bus, Secrets Manager tokens, CloudWatch logs, the signed Ring v1.1 simulator, the MCP server, and the Gatekeeper |
+| Demo mode | `MOCK_MODE=true` so the in-app Ring simulator and the Alexa+ client panel are visible; `LLM_PROVIDER=stub` so triage is deterministic and free — **this account has no Amazon Bedrock model access** (`Access to Bedrock models is not allowed for this account`), so the live instance runs the stub provider. The CDK default is still `LLM_PROVIDER=bedrock`; a Bedrock-capable account gets grounded Bedrock captions with no code change |
+| Access | the UI is public; `/api/*` needs the API token. Open `/?token=<API_TOKEN>` once and the browser keeps it in the `accessbell_token` cookie. The token lives in Secrets Manager (`ApiTokenSecretArn` output) and is **not** committed |
+| HTTPS | disabled (no ACM certificate in this account). Ring requires an HTTPS callback, so a real Ring app needs `CERTIFICATE_ARN` |
+| Teardown | `cdk destroy` in `infra/`, or `aws cloudformation delete-stack --stack-name AccessBellStack` (RDS and the secrets use `RemovalPolicy.DESTROY`) |
+
 ### 3b. Portability matrix
 
 The *stack* is portable; the *integration surface* is Amazon. AWS-native pieces (Bedrock, Cognito)

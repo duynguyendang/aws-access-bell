@@ -513,6 +513,45 @@ async def simulate(request: Request, fixture: str = "doorbell_unknown"):
     return {"ok": True, "event_id": event["id"], "category": tier1.classify(event["kind"]).category.value}
 
 
+DEMO_MCP_TOOLS = {
+    "get_door_alerts",
+    "get_event_detail",
+    "get_context_snapshot",
+    "get_daily_summary",
+    "list_expected_context",
+    "confirm_event",
+    "send_quick_reply",
+}
+
+
+@app.post("/api/demo/mcp")
+async def demo_mcp(request: Request):
+    """Mock-mode bridge to the MCP server for the in-app Alexa+ client.
+
+    The browser never holds the MCP token, so the demo client falls back to this
+    route when /mcp rejects the call. Same MCP server, same tools, same JSON-RPC.
+    """
+    if not settings.mock_mode:
+        raise HTTPException(status_code=404, detail="demo endpoint disabled when mock_mode is false")
+    _rate_limited(request)
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="expected a JSON object")
+    if body.get("method") == "tools/call":
+        name = ((body.get("params") or {}).get("name")) or ""
+        if name not in DEMO_MCP_TOOLS:
+            raise HTTPException(status_code=403, detail=f"tool not available in demo mode: {name}")
+    started = time.perf_counter()
+    response = mcp_server.handle(body)
+    metrics.observe("mcp_tool_ms", (time.perf_counter() - started) * 1000.0)
+    if response is None:
+        return Response(status_code=202)
+    return response
+
+
 class RingSimIn(BaseModel):
     scenario: str = "police_claim"
     visitor_statement: str | None = None

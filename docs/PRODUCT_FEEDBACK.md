@@ -75,10 +75,17 @@ re-validates the result.
    region” from “wrong ID”.
 3. **No local Bedrock emulator.** The deterministic `stub` provider is essential for tests and
    recordings; we keep it as the default so CI never needs AWS credentials.
+4. **Model access cannot be granted from the API in a restricted account.** During our live deploy
+   `InvokeModel` returned `Error 002: Access to Bedrock models is not allowed for this account`, and
+   `PutUseCaseForModelAccess` answered `Your account is not authorized to perform this action.
+   Please create a support case`. With a correct region, model ID, and IAM policy, that reads like
+   an application bug rather than an account-state problem.
 
 **Suggestions**
 
 - Surface a single “check model access” diagnostic in the Bedrock console for a given region/ID.
+- Publish a scriptable way to check (and where possible request) foundation-model access, and say
+  plainly when an account must open a support case instead.
 - Include inference-profile examples next to foundation-model examples in the API docs.
 - Publish a tiny structured-output example with the exact Converse parameters.
 
@@ -265,8 +272,10 @@ and accessibility preferences.
 - Streamable HTTP is simple to run behind the existing FastAPI app.
 - A single `/mcp` endpoint with OAuth scopes keeps the surface small.
 - To demonstrate the surface without a device, the PWA has a mock-mode-only **Alexa+ MCP client
-  (simulated)** panel. It calls the real `/mcp` endpoint with `initialize`, `tools/list`, and
-  `tools/call`, and is labeled as a simulator. It is a demo harness, not a claim of device testing.
+  (simulated)** panel. It runs `initialize`, `tools/list`, and `tools/call` on the same MCP server
+  and tool set as Alexa+ (directly on `/mcp` locally, through the mock-mode bridge
+  `/api/demo/mcp` on a deployed demo, because the browser never holds the MCP token). The panel is
+  labeled as a simulator. It is a demo harness, not a claim of device testing.
 
 **Friction**
 

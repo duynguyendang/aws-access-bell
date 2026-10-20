@@ -135,9 +135,10 @@ The replay tool sends:
 ### Step 3.2: In-app Alexa+ MCP client (simulated)
 
 With `MOCK_MODE=true`, the PWA includes an **Alexa+ MCP client (simulated)** panel. Click **Ask who
-is at the door**: it sends `initialize`, `tools/list`, and `tools/call` to the real `/mcp` endpoint
-and renders the transcript; **Tell them I am coming** sends `send_quick_reply`. The panel is labeled
-simulated and does not claim a physical Echo/Alexa+ device.
+is at the door**: it runs `initialize`, `tools/list`, and `tools/call` on the same MCP server and
+tool set as Alexa+ (directly on `/mcp` locally, through the mock-mode bridge `/api/demo/mcp` on a
+deployed demo, because the browser never holds the MCP token); **Tell them I am coming** sends
+`send_quick_reply`. The panel is labeled simulated and does not claim a physical Echo/Alexa+ device.
 
 ### Step 3.3: Inspect Live SSE Stream
 

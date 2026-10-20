@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 if "DB_URL" not in os.environ:
     os.environ["DB_URL"] = f"sqlite:////tmp/accessbell_api_{uuid.uuid4().hex}.db"
 os.environ["LLM_PROVIDER"] = "stub"
-os.environ["RATE_LIMIT_PER_MINUTE"] = "1000"
+os.environ["RATE_LIMIT_PER_MINUTE"] = "100000"
 os.environ["DEMO_TOKEN"] = ""
 
 import hmac
@@ -445,4 +445,49 @@ def test_ring_simulator_disabled_when_not_mock_mode(client, monkeypatch):
     monkeypatch.setattr(settings, "mock_mode", False)
     assert client.post("/api/simulate/ring", json={"scenario": "package"}).status_code == 404
     assert client.get("/api/simulate/ring/scenarios").status_code == 404
+    monkeypatch.setattr(settings, "mock_mode", True)
+
+
+def test_demo_mcp_bridge_serves_the_same_tools(client):
+    init = client.post(
+        "/api/demo/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-11-25"}},
+    )
+    assert init.status_code == 200
+    assert init.json()["result"]["protocolVersion"] == "2025-11-25"
+
+    listed = client.post("/api/demo/mcp", json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+    assert len(listed.json()["result"]["tools"]) == 11
+
+    called = client.post(
+        "/api/demo/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "get_door_alerts", "arguments": {}},
+        },
+    )
+    assert called.status_code == 200
+    payload = json.loads(called.json()["result"]["content"][0]["text"])
+    assert "alerts" in payload
+
+
+def test_demo_mcp_bridge_blocks_write_tools_outside_the_demo_set(client):
+    resp = client.post(
+        "/api/demo/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {"name": "set_escalation", "arguments": {"enabled": True}},
+        },
+    )
+    assert resp.status_code == 403
+
+
+def test_demo_mcp_bridge_disabled_when_not_mock_mode(client, monkeypatch):
+    monkeypatch.setattr(settings, "mock_mode", False)
+    resp = client.post("/api/demo/mcp", json={"jsonrpc": "2.0", "id": 5, "method": "tools/list"})
+    assert resp.status_code == 404
     monkeypatch.setattr(settings, "mock_mode", True)

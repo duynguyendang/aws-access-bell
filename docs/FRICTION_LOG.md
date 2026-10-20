@@ -202,6 +202,44 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
 - **What would help:** a machine-readable rules/JSON endpoint or an official API for hackathon
   submissions.
 
+## 15. Bedrock model access cannot be granted from the API in a restricted account
+
+- **When:** submission week, during the live deploy
+- **Area:** Amazon Bedrock
+- **Severity:** S1 for the deployed demo, S3 for the code
+- **Symptom:** the task called `us.amazon.nova-lite-v1:0` and got
+  `Error 002: Access to Bedrock models is not allowed for this account`. `PutUseCaseForModelAccess`
+  answered `Your account is not authorized to perform this action. Please create a support case`.
+  The CDK stack, IAM role, and region were all correct, so the failure looked like an application
+  bug for a while.
+- **Impact:** ~1 hour of triage. It also changed what the live instance could honestly claim.
+- **Workaround:** the deployed demo runs `LLM_PROVIDER=stub` (deterministic triage) while the CDK
+  default stays `LLM_PROVIDER=bedrock`; the app fails open to Tier 1 + Gatekeeper captions if
+  Bedrock ever errors.
+- **Evidence:** `docs/DEPLOYMENT.md` §3c, `backend/llm.py`.
+- **What would help:** a documented, scriptable way to check and request foundation-model access,
+  and a clearer runtime error that says "this account has no model access" instead of an opaque
+  `Error 002`.
+
+## 16. A rolling ECS deploy deadlocked the new task on Postgres DDL locks
+
+- **When:** submission week, during the live deploy
+- **Area:** AWS deployment / Postgres
+- **Severity:** S1
+- **Symptom:** the new Fargate task never became healthy: the app printed `Waiting for application
+  startup` forever. The schema script dropped and re-added the event foreign keys on every start;
+  `ALTER TABLE` takes an `ACCESS EXCLUSIVE` lock, and the running task's connection was idle in a
+  transaction, so the new task waited on the lock. The container health check failed, ECS restarted
+  the container, and the deployment stalled until the old task was stopped.
+- **Impact:** ~40 minutes, one failed deployment, and a brief 502 from the load balancer.
+- **Workaround:** the foreign keys are now repaired by the Postgres dialect only when they are
+  missing or lack `ON DELETE CASCADE`; DDL runs with `lock_timeout`, and `init_schema` retries
+  instead of hanging. The next rolling deploy started in one second.
+- **Evidence:** `backend/storage/postgres.py`, `backend/schema.postgres.sql`, `backend/db.py`,
+  `docs/ARCHITECTURE.md` §4.3.
+- **What would help:** an ECS deployment circuit breaker that fails fast (or a task-startup probe
+  that reports the blocked statement), so a lock wait is visible in the deploy log.
+
 ---
 
 ## What this log changed in the product
@@ -212,13 +250,20 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
    Ring callback.
 4. The AWS stack has an **optional HTTPS listener** and a **two-client Cognito** design.
 5. The docs state the physical-device, live-AWS, and transcript-extension limits plainly.
+6. A **live demo instance** is deployed from the same CDK stack (ECS Fargate + ALB + RDS Postgres +
+   Cognito + EventBridge) and documented in `docs/DEPLOYMENT.md` §3c, including the Bedrock
+   model-access limit of this account.
+7. Postgres startup no longer takes a table lock, so a rolling deploy cannot deadlock the new task
+   (see entry 16).
 
 ## Open friction (not resolved before submission)
 
 - No live Ring device or Ring sandbox account: the v1.1 path is simulator-verified, not
   device-verified.
-- No paid AWS deployment left running: the CDK stack is synth-tested and adapter-tested, not
-  production-run.
+- The live AWS instance is a **demo deployment**, not a production service: HTTP only (no ACM
+  certificate), one Fargate task, and the deterministic `stub` triage provider because this account
+  has no Bedrock model access. See [DEPLOYMENT.md](DEPLOYMENT.md) §3c.
 - No human screen-reader audit on a physical TV: automated accessibility checks pass, but that is
   not the same thing, and we do not claim it is.
-- Alexa+ was exercised through the MCP protocol locally, not through a physical Echo device.
+- Alexa+ was exercised through the MCP protocol against the live MCP endpoint and an in-app client
+  simulator, not through a physical Echo device.

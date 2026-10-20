@@ -258,6 +258,7 @@ The challenge/caption text is fixed product copy in `backend/captions.py`, never
 | `/api/simulate?fixture=` | POST | Inject mock fixture (optional `DEMO_TOKEN`) |
 | `/api/simulate/ring` | POST | Build a signed Ring v1.1 event and ingest it through the same handler (`scenario`, optional `visitor_statement`, `device_id`) |
 | `/api/simulate/ring/scenarios` | GET | Demo scenario catalog for the in-app Ring panel |
+| `/api/demo/mcp` | POST | Mock-mode bridge to the same MCP server for the in-app Alexa+ client (read/confirm tools only) |
 | `/api/events[?since&until&limit]` | GET | Event history |
 | `/api/events/{id}` | GET | Single-event read-back (verify state written by another path) |
 | `/api/events/{id}/reply` | POST | Quick reply (`leave_at_door`/`coming`/`not_now`/`waiting_for_parent`) |
@@ -338,6 +339,11 @@ so webhook retries are deduped by lookup instead of scanning recent rows.
 
 DDL ships per dialect (`schema.sqlite.sql`, `schema.postgres.sql`); the repository translates
 placeholders/`now()`/`RETURNING id` so the same method calls work on both.
+
+Postgres startup is safe for a rolling deploy: the event foreign keys are repaired by the dialect
+(`storage/postgres.py`) only when they are missing or lack `ON DELETE CASCADE`, so a second task
+never waits on an `ACCESS EXCLUSIVE` table lock held by the running task, DDL statements run with
+`lock_timeout`, and `init_schema` retries instead of hanging.
 
 ### 4.4 TriageResult schema (LLM contract)
 
@@ -535,9 +541,10 @@ MCP**, not on AccessBell — Alexa+ orchestrates both.
 
 - Voice Q&A via MCP  
 - Optional announce adapter (skill / proactive path)  
-- Mock-mode-only **Alexa+ MCP client (simulated)** panel in the PWA: calls `/mcp` with
-  `initialize`, `tools/list`, and `tools/call` and renders the transcript. It is a demo harness,
-  explicitly not a physical-device test.
+- Mock-mode-only **Alexa+ MCP client (simulated)** panel in the PWA: runs `initialize`,
+  `tools/list`, and `tools/call` on the same MCP server and tool set as Alexa+. Locally it calls
+  `/mcp` directly; on a deployed demo it uses the mock-mode bridge `/api/demo/mcp`, because the
+  browser never holds the MCP token. It is a demo harness, explicitly not a physical-device test.
 
 ---
 
@@ -670,7 +677,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (419 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (422 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 

@@ -35,10 +35,12 @@ Cut timeline:
 
 The cut follows the first six beats of the shot list and adds the **Alexa+ MCP client** panel as the
 last product beat. It does **not** include a terminal shot of `/health` or `/api/metrics`; those are
-reproducible with the commands in the README. The Alexa+ panel is an in-product demo client that calls
-the real `/mcp` endpoint (`initialize`, `tools/list`, `tools/call`) and is labeled **simulated**; no
-physical Echo/Alexa+ device appears. It uses `LLM_PROVIDER=stub` so the recording is deterministic and
-offline. No physical Ring doorbell, Fire TV, or live AWS resource appears.
+reproducible with the commands in the README. The Alexa+ panel is an in-product demo client that
+runs `initialize`, `tools/list`, and `tools/call` on the same MCP server and tool set as Alexa+
+(directly on `/mcp` locally, through the mock-mode bridge `/api/demo/mcp` on a deployed demo) and is
+labeled **simulated**; no physical Echo/Alexa+ device appears. It uses `LLM_PROVIDER=stub` so the
+recording is deterministic and offline. No physical Ring doorbell, Fire TV, or live AWS resource
+appears.
 
 The local cut is **English-only**. Bilingual EN+VI is documented by the caption contract, the
 [bilingual screenshot](assets/bilingual-vi.png), and the SRT, not by switching the UI to Vietnamese in
@@ -111,7 +113,7 @@ re-record with a live narrator or add terminal evidence.
 - EN + VI captions (documented in the bilingual screenshot and caption contract; the recorded UI stays
   English), urgency as text, 44 px targets, D-pad navigation.
 - Consent-gated escalation that is off by default.
-- Alexa+ MCP client panel: real `/mcp` JSON-RPC, `initialize`, 11 tools, `get_door_alerts`, and
+- Alexa+ MCP client panel: real MCP JSON-RPC, `initialize`, 11 tools, `get_door_alerts`, and
   `send_quick_reply`; the panel is labeled **simulated**.
 - MCP tools for Alexa+ and the Bedrock/AWS deployment path.
 
