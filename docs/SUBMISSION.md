@@ -57,7 +57,7 @@ See [AWS.md](AWS.md) for exactly what was and was not run.
 
 | Criterion | Evidence |
 |---|---|
-| **Technical implementation** | Ring v1.1 HMAC ingest + signed in-app simulator; pydantic-validated LLM output; grounding demotion in code; Gatekeeper verification against resident context; durable at-most-once escalation; portable SQLite/Postgres; 423 collected tests (386 pass locally, 37 Postgres-skipped); 46-case gatekeeper/grounding eval with 46/46 passing |
+| **Technical implementation** | Ring v1.1 HMAC ingest + signed in-app simulator; pydantic-validated LLM output; grounding demotion in code; Gatekeeper verification against resident context; durable at-most-once escalation; portable SQLite/Postgres; 424 collected tests (387 pass locally, 37 Postgres-skipped); 46-case gatekeeper/grounding eval with 46/46 passing |
 | **Design** | TV-first PWA with large captions, urgency as text + color, 44 px targets, D-pad traversal, EN/VI bilingual mode, child mode, claim-specific headlines and challenges; pa11y WCAG2AA in CI |
 | **Potential impact** | Built for a specific, underserved user (deaf/hard-of-hearing older adults living alone); addresses imposter scams with a measurable gate rather than a friendly guess; FTC 2024 data on imposter losses cited in the README |
 | **Quality of the idea** | The differentiator is not another camera feed or captioning layer: it is **claim adjudication** against what the resident scheduled. The Gatekeeper is visible in the headline, not buried in settings |

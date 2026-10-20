@@ -65,7 +65,7 @@ scripts are all part of this submission.
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                        # **423 tests** (386 pass + 37 Postgres-skipped)
+python -m pytest -q                        # **424 tests** (387 pass + 37 Postgres-skipped)
 python scripts/eval_triage.py              # 46 labeled scenarios: category + Gatekeeper + memory + demotion/escalation
 python scripts/ablation_evidence.py        # grounding gate ablation (3 arms)
 python scripts/measure_latency.py          # local Tier-1 / enrichment latency (stub)
