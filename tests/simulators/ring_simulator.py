@@ -14,6 +14,21 @@ import httpx
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
+RING_TYPES = {
+    "button_press": "button_press",
+    "doorbell_ding": "button_press",
+    "ding": "button_press",
+    "motion_detected": "motion_detected",
+    "motion": "motion_detected",
+}
+
+STATEMENTS = {
+    "PACKAGE_DELIVERY": "I have a package delivery for you.",
+    "MED_DELIVERY": "I am delivering your prescription from the pharmacy.",
+    "FAMILY_VISITOR": "Hi, it is your family visiting.",
+    "UNKNOWN_VISITOR": "I am looking for someone.",
+}
+
 
 @dataclass
 class RingEvent:
@@ -37,42 +52,50 @@ class RingSimulator:
         self.sent_events: list[dict] = []
 
     def _sign_payload(self, payload_bytes: bytes) -> str:
-        return hmac.new(
+        digest = hmac.new(
             self.webhook_secret.encode("utf-8"),
             payload_bytes,
             hashlib.sha256,
         ).hexdigest()
+        return f"sha256={digest}"
 
     def _build_payload(self, event: RingEvent) -> dict:
-        event_id = f"evt_sim_{uuid.uuid4().hex[:12]}"
-        snapshot_url = None
-        if event.snapshot_key:
-            snapshot_url = f"{self.base_url}/static/test_snapshots/{event.snapshot_key}"
-
+        now = datetime.now(timezone.utc)
+        timestamp_ms = int(now.timestamp() * 1000)
+        event_type = RING_TYPES.get(event.event_type, event.event_type)
+        statement = event.metadata.get("visitor_statement") or STATEMENTS.get(event.expected_label or "", "")
+        attributes = {
+            "source": event.device_id,
+            "source_type": "devices",
+            "timestamp": timestamp_ms,
+        }
+        if statement:
+            attributes["visitor_statement"] = statement
         return {
-            "event_id": event_id,
-            "event_type": event.event_type,
-            "device_id": event.device_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "snapshot_url": snapshot_url,
-            "expected_label": event.expected_label,
-            "label_hint": event.metadata.get("label_hint") or (event.expected_label or "").lower(),
-            "tags": event.metadata.get("tags", []),
-            "motion_zones": event.metadata.get("motion_zones", [1]),
-            "battery_level": event.metadata.get("battery_level", 85),
-            "firmware_version": "sim-1.0.0",
+            "meta": {
+                "version": "1.1",
+                "time": now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "request_id": str(uuid.uuid4()),
+                "account_id": "ava1.ring.account.simulator",
+            },
+            "data": {
+                "id": f"{event.device_id}_{event_type}_{timestamp_ms}",
+                "type": event_type,
+                "attributes": attributes,
+                "relationships": {
+                    "devices": {"links": {"self": f"/v1/devices/{event.device_id}"}}
+                },
+            },
         }
 
     async def send_event(self, event: RingEvent) -> dict:
         payload = self._build_payload(event)
-        payload_bytes = json.dumps(payload).encode("utf-8")
+        payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         signature = self._sign_payload(payload_bytes)
 
         headers = {
             "Content-Type": "application/json",
-            "X-Ring-Signature": signature,
             "X-Signature": signature,
-            "X-Ring-Event-Type": event.event_type,
         }
         api_token = os.getenv("API_TOKEN", "")
         if api_token:
@@ -86,15 +109,19 @@ class RingSimulator:
                 timeout=10.0,
             )
 
+        try:
+            body = response.json()
+        except ValueError:
+            body = response.text
+        event_id = body.get("event_id") if isinstance(body, dict) else None
         result = {
-            "event_id": payload["event_id"],
-            "event_type": event.event_type,
+            "event_id": event_id or payload["data"]["id"],
+            "ring_event_id": payload["data"]["id"],
+            "event_type": payload["data"]["type"],
             "expected_label": event.expected_label,
-            "snapshot_key": event.snapshot_key,
+            "visitor_statement": payload["data"]["attributes"].get("visitor_statement", ""),
             "http_status": response.status_code,
-            "response_body": response.json()
-            if response.headers.get("content-type", "").startswith("application/json")
-            else response.text,
+            "response_body": body,
             "sent_at": time.monotonic(),
         }
         self.sent_events.append(result)
@@ -102,21 +129,21 @@ class RingSimulator:
 
     async def send_doorbell_press(
         self,
-        snapshot_key: str,
-        expected_label: str,
+        snapshot_key: Optional[str] = None,
+        expected_label: Optional[str] = None,
         device_id: Optional[str] = None,
         **metadata,
     ) -> dict:
         event = RingEvent(
             event_type="doorbell_ding",
-            device_id=device_id or f"front_door_sim_{expected_label.lower()}",
+            device_id=device_id or f"front_door_sim_{str(expected_label or 'unknown').lower()}",
             snapshot_key=snapshot_key,
             expected_label=expected_label,
             metadata=metadata,
         )
         return await self.send_event(event)
 
-    async def send_motion(self, snapshot_key: str, device_id: Optional[str] = None, **metadata) -> dict:
+    async def send_motion(self, snapshot_key: Optional[str] = None, device_id: Optional[str] = None, **metadata) -> dict:
         event = RingEvent(
             event_type="motion_detected",
             device_id=device_id or "front_door_sim_motion",
@@ -178,7 +205,7 @@ async def run_all_scenarios(base_url: str = "http://localhost:8000"):
     sim = RingSimulator(base_url=base_url)
     results = []
     for name, cfg in SCENARIOS.items():
-        print(f"\n▶ Sending scenario: {name}")
+        print(f"\nSending scenario: {name}")
         result = await sim.send_doorbell_press(
             snapshot_key=cfg["snapshot_key"],
             expected_label=cfg["expected_label"],

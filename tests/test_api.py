@@ -2,6 +2,7 @@ import json
 import os
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 
 if "DB_URL" not in os.environ:
     os.environ["DB_URL"] = f"sqlite:////tmp/accessbell_api_{uuid.uuid4().hex}.db"
@@ -389,3 +390,59 @@ def test_stream_broker_close_sends_sentinel():
 
 def test_sse_endpoint_registered():
     assert "/api/stream" in main_module.app.openapi()["paths"]
+
+
+def test_ring_simulator_lists_scenarios(client):
+    body = client.get("/api/simulate/ring/scenarios").json()
+    keys = {scenario["key"] for scenario in body["scenarios"]}
+    assert "police_claim" in keys
+    assert "motion" in keys
+    assert all(scenario["kind"] in {"button_press", "motion_detected"} for scenario in body["scenarios"])
+
+
+def test_ring_simulator_signed_event_is_unverified_without_resident_context(client):
+    resp = client.post("/api/simulate/ring", json={"scenario": "police_claim"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["signature_valid"] is True
+    assert body["version"] == "1.1"
+    assert body["visitor_statement"].startswith("I am a police officer")
+    enriched = wait_for_enriched(client, body["event_id"])
+    assert enriched["triage"]["verification_status"] == "unverified"
+    assert enriched["triage"]["risk_level"] == "high"
+    assert enriched["triage"]["claimed_identity"] == "police"
+    assert enriched["visitor_statement"].startswith("I am a police officer")
+    turns = client.get(f"/api/events/{body['ring_event_id']}/door-talk")
+    assert turns.status_code == 200
+
+
+def test_ring_simulator_police_claim_verified_by_resident_window(client):
+    now = datetime.now(timezone.utc)
+    window = client.post(
+        "/api/expected",
+        json={
+            "kind": "ding",
+            "label": "police patrol",
+            "window_start": (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "window_end": (now + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "source": "pwa",
+        },
+    ).json()
+    try:
+        resp = client.post("/api/simulate/ring", json={"scenario": "police_claim"})
+        enriched = wait_for_enriched(client, resp.json()["event_id"])
+        assert enriched["triage"]["verification_status"] == "verified"
+        assert enriched["triage"]["risk_level"] == "low"
+    finally:
+        client.delete(f"/api/expected/{window['id']}")
+
+
+def test_ring_simulator_rejects_unknown_scenario(client):
+    assert client.post("/api/simulate/ring", json={"scenario": "not-a-scenario"}).status_code == 400
+
+
+def test_ring_simulator_disabled_when_not_mock_mode(client, monkeypatch):
+    monkeypatch.setattr(settings, "mock_mode", False)
+    assert client.post("/api/simulate/ring", json={"scenario": "package"}).status_code == 404
+    assert client.get("/api/simulate/ring/scenarios").status_code == 404
+    monkeypatch.setattr(settings, "mock_mode", True)

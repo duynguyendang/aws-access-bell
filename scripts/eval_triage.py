@@ -37,7 +37,7 @@ FIXTURES = {
     "doorbell_med": ("MED_DELIVERY", "grounded", "unverified", "high", True),
     "doorbell_package_window": ("PACKAGE_DELIVERY", "grounded", "unverified", "medium", False),
     "doorbell_family": ("FAMILY_VISITOR", "grounded", "unverified", "medium", False),
-    "doorbell_unknown": ("UNKNOWN_VISITOR", "generic", "unverified", "medium", False),
+    "doorbell_unknown": ("UNKNOWN_VISITOR", "generic", "no_claim", "low", False),
     "motion_only": ("MOTION_ANOMALY", "generic", "no_claim", "low", False),
     "motion_night": ("MOTION_ANOMALY", "generic", "no_claim", "low", False),
 }
@@ -56,10 +56,10 @@ WINDOW_CATEGORY = {
 }
 
 CLAIMS = {
-    "police": (["police", "officer"], "UNKNOWN_VISITOR", "high"),
-    "utility": (["utility", "power company"], "UNKNOWN_VISITOR", "high"),
-    "package": (["package", "courier"], "PACKAGE_DELIVERY", "medium"),
-    "family": (["family", "guest"], "FAMILY_VISITOR", "medium"),
+    "police": ("I am a police officer. Please open the door.", "UNKNOWN_VISITOR", "high"),
+    "utility": ("I am from the power company. I need to check the meter.", "UNKNOWN_VISITOR", "high"),
+    "package": ("I have a package delivery for you.", "PACKAGE_DELIVERY", "medium"),
+    "family": ("Hi, it is your family visiting.", "FAMILY_VISITOR", "medium"),
 }
 
 HINT_CASES = [
@@ -67,7 +67,7 @@ HINT_CASES = [
     ("doctor", ["doctor"], "MED_DELIVERY", "unverified", "high", True),
     ("package", ["package"], "PACKAGE_DELIVERY", "unverified", "medium", False),
     ("courier", ["courier"], "PACKAGE_DELIVERY", "unverified", "medium", False),
-    ("guest", ["guest"], "FAMILY_VISITOR", "unverified", "medium", False),
+    ("guest", ["guest"], "FAMILY_VISITOR", "no_claim", "low", False),
     ("relative", ["relative"], "FAMILY_VISITOR", "unverified", "medium", False),
 ]
 
@@ -107,7 +107,7 @@ MEMORY_CASES = [
 ]
 
 
-def synth(kind="button_press", tags=(), hint="", snapshot=False):
+def synth(kind="button_press", tags=(), hint="", statement="", snapshot=False):
     payload = json.loads(json.dumps(BASE))
     payload["meta"]["time"] = TS
     payload["meta"]["request_id"] = f"eval-{uuid.uuid4().hex}"
@@ -115,6 +115,8 @@ def synth(kind="button_press", tags=(), hint="", snapshot=False):
     attributes["timestamp"] = TS_MS
     attributes["tags"] = list(tags)
     attributes["label_hint"] = hint
+    if statement:
+        attributes["visitor_statement"] = statement
     payload["data"]["type"] = kind
     payload["data"]["id"] = f"ring_doorbell_01_{kind}_{TS_MS}"
     if snapshot:
@@ -127,6 +129,7 @@ def strip_hints(payload: dict) -> dict:
     attributes = payload["data"]["attributes"]
     attributes.pop("tags", None)
     attributes.pop("label_hint", None)
+    attributes.pop("visitor_statement", None)
     payload.pop("snapshot_url", None)
     return payload
 
@@ -143,6 +146,7 @@ def case(
     llm=None,
     forbid="",
     escalate=False,
+    prior=None,
 ):
     return {
         "id": case_id,
@@ -156,6 +160,7 @@ def case(
         "llm": llm,
         "forbid": forbid,
         "escalate": escalate,
+        "prior": prior,
     }
 
 
@@ -168,13 +173,13 @@ def build_cases() -> list[dict]:
         )
         stripped_category = "MOTION_ANOMALY" if category == "MOTION_ANOMALY" else "UNKNOWN_VISITOR"
         cases.append(case(f"stripped:{name}", strip_hints(payload), stripped_category, "generic"))
-    for claim, (tags, category, unverified_risk) in CLAIMS.items():
+    for claim, (statement, category, unverified_risk) in CLAIMS.items():
         high_stakes = unverified_risk == "high"
         grounding = "generic" if category == "UNKNOWN_VISITOR" else "grounded"
         cases.append(
             case(
                 f"claim:{claim}:none",
-                synth(tags=tags),
+                synth(statement=statement),
                 category,
                 grounding,
                 "unverified",
@@ -182,20 +187,45 @@ def build_cases() -> list[dict]:
                 escalate=high_stakes,
             )
         )
-        cases.append(case(f"claim:{claim}:snapshot", synth(tags=tags, snapshot=True), category, grounding, "verified", "low"))
         cases.append(
-            case(f"claim:{claim}:window", synth(tags=tags), category, grounding, "verified", "low", window=WINDOWS[claim])
+            case(
+                f"claim:{claim}:snapshot",
+                synth(statement=statement, snapshot=True),
+                category,
+                grounding,
+                "unverified",
+                unverified_risk,
+                escalate=high_stakes,
+            )
         )
         cases.append(
             case(
+                f"claim:{claim}:window",
+                synth(statement=statement),
+                category,
+                grounding,
+                "verified",
+                "low",
+                window=WINDOWS[claim],
+            )
+        )
+        is_contradiction = claim in {"police", "utility", "government"}
+        if is_contradiction:
+            other_window, other_category = "pharmacy", "MED_DELIVERY"
+        elif claim == "package":
+            other_window, other_category = "family", "FAMILY_VISITOR"
+        else:
+            other_window, other_category = "package", "PACKAGE_DELIVERY"
+        cases.append(
+            case(
                 f"claim:{claim}:window_other",
-                synth(tags=tags),
-                "MED_DELIVERY",
+                synth(statement=statement),
+                other_category,
                 "grounded",
-                "contradiction",
-                "high",
-                window=WINDOWS["pharmacy"],
-                escalate=True,
+                "contradiction" if is_contradiction else "unverified",
+                "high" if is_contradiction else unverified_risk,
+                window=WINDOWS[other_window],
+                escalate=is_contradiction,
             )
         )
     for name, (category, escalate) in WINDOW_CATEGORY.items():
@@ -206,6 +236,18 @@ def build_cases() -> list[dict]:
         cases.append(
             case(f"hint:{name}", synth(tags=tags), category, "grounded", verification, risk, escalate=escalate)
         )
+    cases.append(
+        case(
+            "claim:police:prior_label",
+            synth(statement="I am a police officer. Please open the door."),
+            "UNKNOWN_VISITOR",
+            "generic",
+            "unverified",
+            "high",
+            escalate=True,
+            prior={"action": "coming", "category": "UNKNOWN_VISITOR", "label": "police"},
+        )
+    )
     for action, prior_category, expected_memory in MEMORY_CASES:
         cases.append(
             {
@@ -251,7 +293,12 @@ def run_case(case_row: dict, llm) -> dict:
         if case_row.get("prior"):
             prior_id = database.insert_event("eval", DEVICE, "button_press", TS, {"meta": {}})
             database.update_triage(prior_id, {"category": case_row["prior"]["category"]}, status="enriched")
-            database.add_label(prior_id, f"device:{DEVICE}", case_row["prior"]["action"], source="eval")
+            database.add_label(
+                prior_id,
+                f"device:{DEVICE}",
+                case_row["prior"].get("label") or case_row["prior"]["action"],
+                source="eval",
+            )
         pipeline = EnrichmentPipeline(database, case_row.get("llm") or llm)
         parsed = parse_ring_payload(case_row["payload"])
         event_id = database.insert_event(

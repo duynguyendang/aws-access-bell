@@ -159,7 +159,7 @@ def test_debounce(live_server):
             assert results[0]["response_body"].get("deduped") is False
             assert results[1]["response_body"].get("deduped") is True
             assert results[2]["response_body"].get("deduped") is True
-            event_ids = [r["event_id"] for r in results]
+            event_ids = [str(r["event_id"]) for r in results]
             alerts = [a for a in firetv.alerts if a.event_id in event_ids]
             tier2_events = set(a.event_id for a in alerts if a.alert_type == "tier2_enriched")
             assert len(tier2_events) == 1

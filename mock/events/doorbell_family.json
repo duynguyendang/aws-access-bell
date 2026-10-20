@@ -12,8 +12,7 @@
       "source": "ring_doorbell_01",
       "source_type": "devices",
       "timestamp": 1789495500000,
-      "tags": ["family", "visit"],
-      "label_hint": "expected_guest"
+      "visitor_statement": "Hi, it is your family visiting."
     },
     "relationships": {
       "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}

@@ -1,9 +1,9 @@
 """Evidence ablation: how much does grounding signal contribute?
 
 Runs the same fixtures under three arms so the grounding gate is measurable:
-  event_only       -> payload hints stripped, no expected window
-  payload_hints    -> fixtures as shipped (demo label hints)
-  expected_window  -> hints stripped, expected window added
+  event_only       -> payload signals stripped, no expected window
+  payload_hints    -> fixtures as shipped (visitor statement extension)
+  expected_window  -> signals stripped, expected window added
 
 Usage: python scripts/ablation_evidence.py [--json]
 Fixture-derived, not production telemetry.
@@ -52,6 +52,7 @@ def strip_hints(raw: dict) -> dict:
     if isinstance(attributes, dict):
         attributes.pop("tags", None)
         attributes.pop("label_hint", None)
+        attributes.pop("visitor_statement", None)
     return raw
 
 

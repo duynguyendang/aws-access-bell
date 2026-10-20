@@ -87,6 +87,9 @@ GROUNDING = {
         "demoted": "Why generic: no expected window, label, or payload signal yet.",
         "generic": "Why generic: no specific match in the event.",
         "context_timeout": "Why generic: calendar context was slow, so only local signals were used.",
+        "verified_window": "Why: matches a schedule you created.",
+        "unverified_claim": "Why: no window or calendar event you created matches this claim.",
+        "contradiction_claim": "Why: this claim conflicts with the schedule you created.",
     },
     "vi": {
         "grounded": "Lý do: {evidence}.",
@@ -95,6 +98,9 @@ GROUNDING = {
         "demoted": "Thông báo chung: chưa có khung giờ hẹn hoặc bằng chứng cụ thể.",
         "generic": "Thông báo chung: sự kiện không có dấu hiệu cụ thể.",
         "context_timeout": "Thông báo chung: phản hồi lịch bị trễ nên chỉ dùng tín hiệu cục bộ.",
+        "verified_window": "Lý do: khớp lịch bạn đã tạo.",
+        "unverified_claim": "Lý do: không có khung giờ hoặc lịch bạn tạo khớp với lời khai này.",
+        "contradiction_claim": "Lý do: lời khai này mâu thuẫn với lịch bạn đã tạo.",
     },
 }
 
@@ -121,8 +127,111 @@ MEMORY_ACTION = {
 }
 
 CHALLENGE = {
-    "en": "Ask for order number / ID and callback number. Do not open.",
-    "vi": "Hỏi mã đơn hàng / giấy tờ và số gọi lại. Đừng mở cửa.",
+    "en": "Ask for a callback number. Do not rely on the visitor's words.",
+    "vi": "Hỏi số gọi lại. Đừng tin lời khách.",
+}
+
+CLAIM = {
+    "police": {
+        "en": "Visitor claims to be police. Not verified.",
+        "vi": "Khách nói là công an. Chưa xác minh.",
+    },
+    "utility": {
+        "en": "Visitor claims to be from the utility. Not verified.",
+        "vi": "Khách nói là nhân viên điện lực. Chưa xác minh.",
+    },
+    "government": {
+        "en": "Visitor claims to be an official. Not verified.",
+        "vi": "Khách nói là thanh tra. Chưa xác minh.",
+    },
+    "pharmacy": {
+        "en": "Visitor claims to deliver medicine. Not verified.",
+        "vi": "Khách nói giao thuốc. Chưa xác minh.",
+    },
+    "package": {
+        "en": "Visitor claims to deliver a package. Not verified.",
+        "vi": "Khách nói giao hàng. Chưa xác minh.",
+    },
+    "family": {
+        "en": "Visitor claims to be family. Not verified.",
+        "vi": "Khách nói là người thân. Chưa xác minh.",
+    },
+}
+
+CLAIM_VERIFIED = {
+    "police": {
+        "en": "Police visit matches your schedule.",
+        "vi": "Lịch hẹn công an khớp với lịch của bạn.",
+    },
+    "utility": {
+        "en": "Utility visit matches your schedule.",
+        "vi": "Lịch hẹn điện lực khớp với lịch của bạn.",
+    },
+    "government": {
+        "en": "Official visit matches your schedule.",
+        "vi": "Lịch hẹn thanh tra khớp với lịch của bạn.",
+    },
+    "pharmacy": {
+        "en": "Medicine delivery matches your schedule.",
+        "vi": "Lịch giao thuốc khớp với lịch của bạn.",
+    },
+    "package": {
+        "en": "Package delivery matches your schedule.",
+        "vi": "Lịch giao hàng khớp với lịch của bạn.",
+    },
+    "family": {
+        "en": "Family visit matches your schedule.",
+        "vi": "Lịch người thân khớp với lịch của bạn.",
+    },
+}
+
+VERIFICATION_LABEL = {
+    "verified": {"en": "verified", "vi": "đã xác minh"},
+    "unverified": {"en": "unverified", "vi": "chưa xác minh"},
+    "contradiction": {"en": "contradiction", "vi": "mâu thuẫn"},
+    "no_claim": {"en": "no claim", "vi": "không có lời khai"},
+}
+
+NONE_LABEL = {"en": "none", "vi": "không"}
+
+ESCALATION = {
+    "en": (
+        "AccessBell: no response to a high-urgency door alert "
+        "(event {event_id}, policy {policy}). "
+        "Verification: {verification}. Claim: {claim}. Caption: {caption}"
+    ),
+    "vi": (
+        "AccessBell: không có phản hồi cho cảnh báo cửa khẩn cấp "
+        "(sự kiện {event_id}, chính sách {policy}). "
+        "Xác minh: {verification}. Lời khai: {claim}. Chú thích: {caption}"
+    ),
+}
+
+CHALLENGE_BY_CLAIM = {
+    "police": {
+        "en": "Ask for a badge number and a callback number. Do not open the door.",
+        "vi": "Hỏi số hiệu và số gọi lại. Đừng mở cửa.",
+    },
+    "utility": {
+        "en": "Ask for an employee ID and a callback number. Do not open the door.",
+        "vi": "Hỏi mã nhân viên và số gọi lại. Đừng mở cửa.",
+    },
+    "government": {
+        "en": "Ask for an inspector ID and a callback number. Do not open the door.",
+        "vi": "Hỏi mã thanh tra và số gọi lại. Đừng mở cửa.",
+    },
+    "pharmacy": {
+        "en": "Ask for the order number and a callback number. Do not open the door.",
+        "vi": "Hỏi mã đơn hàng và số gọi lại. Đừng mở cửa.",
+    },
+    "package": {
+        "en": "Ask for the order number. Do not rely on the visitor's words.",
+        "vi": "Hỏi mã đơn hàng. Đừng tin lời khách.",
+    },
+    "family": {
+        "en": "Ask who they are here to see. Do not rely on the visitor's words.",
+        "vi": "Hỏi họ đến gặp ai. Đừng tin lời khách.",
+    },
 }
 
 MEMORY_BASIS = {
@@ -194,6 +303,22 @@ UI = {
         "revoke": "Revoke",
         "no_shares": "No shares yet",
         "simulate": "Simulate doorbell",
+        "ring_title": "Ring simulator (signed v1.1 webhook)",
+        "ring_note": "Builds a Ring Partner API v1.1 event and verifies the X-Signature HMAC before triage.",
+        "ring_scenario": "Scenario",
+        "ring_statement": "Simulated visitor statement",
+        "ring_fire": "Ring doorbell",
+        "ring_motion": "Ring motion",
+        "ring_sent": "Signed Ring v1.1 event accepted (ID {id})",
+        "ring_failed": "Ring simulator failed",
+        "ring_scenario_police_claim": "Police claim",
+        "ring_scenario_utility_claim": "Utility claim",
+        "ring_scenario_med_delivery": "Prescription delivery",
+        "ring_scenario_package": "Package delivery",
+        "ring_scenario_family": "Family visit",
+        "ring_scenario_unknown": "Unknown visitor",
+        "ring_scenario_motion": "Motion only",
+        "visitor_said": "Visitor said: {text}",
         "no_events": "No alerts yet",
         "demo_en": "Demo EN (Medicine)",
         "demo_vi": "Demo VI (Medicine)",
@@ -279,6 +404,22 @@ UI = {
         "revoke": "Thu hồi",
         "no_shares": "Chưa có chia sẻ nào",
         "simulate": "Mô phỏng chuông cửa",
+        "ring_title": "Mô phỏng Ring (webhook v1.1 có chữ ký)",
+        "ring_note": "Tạo sự kiện Ring Partner API v1.1 và kiểm tra chữ ký X-Signature trước khi phân loại.",
+        "ring_scenario": "Tình huống",
+        "ring_statement": "Lời khách mô phỏng",
+        "ring_fire": "Chuông Ring",
+        "ring_motion": "Chuyển động Ring",
+        "ring_sent": "Đã nhận sự kiện Ring v1.1 có chữ ký (ID {id})",
+        "ring_failed": "Mô phỏng Ring thất bại",
+        "ring_scenario_police_claim": "Người tự nhận công an",
+        "ring_scenario_utility_claim": "Người tự nhận điện lực",
+        "ring_scenario_med_delivery": "Giao thuốc",
+        "ring_scenario_package": "Giao hàng",
+        "ring_scenario_family": "Người thân",
+        "ring_scenario_unknown": "Khách lạ",
+        "ring_scenario_motion": "Chỉ chuyển động",
+        "visitor_said": "Khách nói: {text}",
         "no_events": "Chưa có cảnh báo",
         "demo_en": "Bản demo EN (Giao thuốc)",
         "demo_vi": "Bản demo VI (Giao thuốc)",
@@ -349,8 +490,15 @@ def why_text(
     calendar_label: str = "",
     context_status: str = "disabled",
     language: str = "en",
+    verification_status: str = "no_claim",
 ) -> str:
     templates = GROUNDING.get(language, GROUNDING["en"])
+    if verification_status == "verified":
+        return templates["verified_window"]
+    if verification_status == "contradiction":
+        return templates["contradiction_claim"]
+    if verification_status == "unverified":
+        return templates["unverified_claim"]
     evidence = evidence or []
     if context_status == "timeout" and grounding in {"generic", "demoted_insufficient_evidence"}:
         return templates["context_timeout"]

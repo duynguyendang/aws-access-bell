@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+from .captions import ESCALATION, NONE_LABEL, VERIFICATION_LABEL
 from .policy import policy_ref
 from .util import iso_in, seconds_until
 
@@ -82,9 +83,15 @@ class EscalationManager:
         except (TypeError, ValueError):
             triage = {}
         caption = triage.get("caption_en") or "Someone is at the door"
-        message = (
-            "AccessBell: no response to a high-urgency door alert"
-            f" (event {event_id}, policy {policy_ref()['short']}). Caption: {caption}"
+        verification = triage.get("verification_status") or "no_claim"
+        verification_label = VERIFICATION_LABEL.get(verification, VERIFICATION_LABEL["no_claim"])
+        claim = triage.get("claimed_identity") or NONE_LABEL["en"]
+        message = ESCALATION["en"].format(
+            event_id=event_id,
+            policy=policy_ref()["short"],
+            verification=verification_label["en"],
+            claim=claim,
+            caption=caption,
         )
         for contact in contacts:
             result = self._notifier.escalate(contact["recipient"], message)

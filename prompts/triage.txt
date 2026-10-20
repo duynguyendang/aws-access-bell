@@ -23,7 +23,9 @@ user labels, return one JSON object — nothing else, no markdown fences.
   routine motion is low.
 - confidence: float 0..1 reflecting how sure you are.
 - evidence may only use these sources (optionally "source:detail"):
-  doorbell, motion, expected_context, calendar, time_pattern, user_label, snapshot.
+  doorbell, motion, expected_context, calendar, time_pattern, user_label, visitor_statement.
+- A visitor_statement is what the visitor said at the door. Use it to classify the topic (a delivery,
+  a utility visit) but never as proof of identity; the Gatekeeper verifies claims separately.
 - calendar_events (when present) come from a separate Calendar MCP; use them only as time/title context
   and cite "calendar:<detail>". Never claim calendar content that is not in the input.
 - Do NOT invent: person identity, face, vehicle, package contents, or visual detail unless that

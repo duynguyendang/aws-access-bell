@@ -1,7 +1,7 @@
 # AccessBell
 
 > **Accessible door intelligence: the doorbell as text, on the screens a household already owns.**
-> Ring · Fire TV · Alexa+ (MCP) · AWS Bedrock
+> Ring track · AWS Builder mini challenge · Alexa+ (MCP) · Amazon Bedrock
 
 [![ci](https://github.com/duynguyendang/aws-access-bell/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/duynguyendang/aws-access-bell/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -13,76 +13,94 @@ user is specific. It is not a new camera and not a caregiver surveillance produc
 lives there stays in control.
 
 **Meet Mai.** 72, lives alone, hard of hearing. The doorbell rings while she is cooking; the TV shows
-*Someone is at the door* in seconds, names the pharmacy courier with its evidence a moment later,
-and she answers from the remote. That single flow is the product. (Mai is a composite of the
+*Someone is at the door* in seconds, identifies a likely pharmacy delivery with its evidence a moment
+later, and she answers from the remote. That single flow is the product. (Mai is a composite of the
 residents this is built for — no real person's data.)
 
 **The part we are proudest of — the Gatekeeper.** Anyone can say “I'm the police.” AccessBell never
-verifies a visitor claim from the visitor's own words: a claim is checked against independent
-evidence (an expected window the resident created, a user label, a calendar event, a snapshot) and
-comes out `verified`, `unverified`, or `contradiction` — with a risk level and a challenge question.
-Unverified high-stakes claims are never softened into a friendly caption. The gate exists because
-the claim at the door is a measured attack surface, not a thought experiment: the FTC's Consumer
-Sentinel Data Book 2024 counts 845,806 imposter-scam reports and $2.95B in reported losses, with
-government-impersonation losses alone at $789M (up $171M year over year) — and adults 70+ report
-the highest median losses of any age group
+verifies a visitor claim from the visitor's own words, a previous user label, or an unanalysed
+snapshot. A claim is checked against **resident-created context only** — an expected window or a
+calendar event the resident controls — and comes out `verified`, `unverified`, or `contradiction`,
+with a risk level and a claim-specific challenge question. Unverified high-stakes claims are never
+softened into a friendly caption: the headline itself says *Visitor claims to be police. Not
+verified.* The gate exists because the claim at the door is a measured attack surface, not a thought
+experiment: the FTC's Consumer Sentinel Data Book 2024 counts 845,806 imposter-scam reports and
+$2.95B in reported losses, with government-impersonation losses alone at $789M (up $171M year over
+year) — and adults 70+ report the highest median losses of any age group
 ([FTC, 2024](https://www.ftc.gov/reports/consumer-sentinel-network-data-book-2024)).
+
+| Gatekeeper: unverified claim | Ring v1.1 simulator |
+|---|---|
+| ![Visitor claims to be police, marked unverified with risk high and a challenge question](docs/assets/gatekeeper-unverified.png) | ![Ring simulator panel with scenario, visitor statement, and signed webhook result](docs/assets/ring-simulator.png) |
 
 **Closest incumbent.** Ring Video Descriptions already turns camera events into text (subscription,
 7 languages) and Alexa+ Greetings can handle a delivery at the door. Neither adjudicates the
-visitor's *claim*: AccessBell verifies the claim against independent evidence (expected window,
-snapshot, calendar event, user label) and refuses to soften an unverified high-stakes one — with
-consent-gated escalation, an auditable door log, EN/VI TTS-safe captions on a TV-first surface and
-the same door tools exposed over MCP.
+visitor's *claim*: AccessBell verifies the claim against resident-created context and refuses to
+soften an unverified high-stakes one — with consent-gated escalation, an auditable door log, EN/VI
+TTS-safe captions on a TV-first surface and the same door tools exposed over MCP.
+
+## Built during the submission window
+
+This repository is a new project for the Amazon App Dev 2026 hackathon. Its first commit is
+**2026-09-22**, inside the submission window (2026-08-31 → 2026-10-23), and every feature described
+here was built and tested in that window. There is no pre-existing product to explain around. The
+in-app Ring simulator, the Gatekeeper rewrite, the MCP surface, the AWS CDK stack and the evidence
+scripts are all part of this submission.
 
 ## Try it
 
 | | |
 |---|---|
-| **Live demo** | _published with the submission_ <!-- TODO(submission): add the demo URL --> |
-| **3-minute video** | _published with the submission_ <!-- TODO(submission): add the video link --> |
+| **3-minute video** | [Narrated local cut](docs/assets/accessbell-demo.mp4) (2:24) · [SRT captions](docs/accessbell-demo.srt) · public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
+| **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
-| **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline test mode: `MOCK_MODE` + `stub`) |
+| **Submission notes** | [docs/SUBMISSION.md](docs/SUBMISSION.md) · [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) · [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |
 
 ## Evaluate it in 3 minutes
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                        # **333 tests** (300 pass + 33 Postgres-skipped)
-python scripts/eval_triage.py              # 45 labeled scenarios: category + Gatekeeper + memory + demotion/escalation
+python -m pytest -q                        # **419 tests** (382 pass + 37 Postgres-skipped)
+python scripts/eval_triage.py              # 46 labeled scenarios: category + Gatekeeper + memory + demotion/escalation
 python scripts/ablation_evidence.py        # grounding gate ablation (3 arms)
 python scripts/measure_latency.py          # local Tier-1 / enrichment latency (stub)
 python scripts/verify_mcp.py               # boots the app, then initialize / tools/list / tools/call
 DB_URL=sqlite:///demo.db MOCK_MODE=true python -m backend &   # then:
-curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_police_claim"
-curl -X POST "http://127.0.0.1:8080/api/simulate?fixture=doorbell_med"
+curl -s -X POST "http://127.0.0.1:8080/api/simulate/ring" \
+  -H "Content-Type: application/json" -d '{"scenario":"police_claim"}'
+curl -s -X POST "http://127.0.0.1:8080/api/simulate/ring" \
+  -H "Content-Type: application/json" -d '{"scenario":"med_delivery"}'
 ```
 
-What to look at: the alert caption and its **Evidence / Why** line; the Gatekeeper challenge on the
-police claim; the grounding badge (`grounded` / `generic` / `demoted_insufficient_evidence`); the
-`/api/metrics` timers; and **Download door log** — a plain-text artifact of the day's events you can
-keep. A recording plan lives in [docs/DEMO.md](docs/DEMO.md). For release discipline,
-`SUBMISSION_STRICT=1 python scripts/check_docs_consistency.py` fails while the demo URL / video
-placeholders are still TODO.
+What to look at: the alert caption and its **Evidence / Why** line; the Gatekeeper headline and
+challenge on the police claim; the Ring simulator panel showing the signed v1.1 webhook result; the
+grounding badge (`grounded` / `generic` / `demoted_insufficient_evidence`); the `/api/metrics`
+timers; and **Download door log** — a plain-text artifact of the day's events you can keep. A
+recording plan lives in [docs/DEMO.md](docs/DEMO.md), and a 2:24 narrated cut with SRT captions is in
+`docs/assets/accessbell-demo.mp4` for review and upload. For release discipline,
+`SUBMISSION_STRICT=1 python scripts/check_docs_consistency.py` fails while the public video URL is
+still TODO.
 
 ## How it works
 
 ```
-Ring webhook (HMAC) ──► AccessBell ──► Fire TV / PWA   (Tier 1 caption, rules only)
-        or /api/simulate    │
-                            ├─► Tier 2: grounded triage (Bedrock / stub) + expected windows
-                            ├─► Gatekeeper: claim verification (verified / unverified / contradiction)
-                            ├─► EventBridge (optional, off by default)
-                            ├─► MCP server ◄──► Alexa+ ◄──► Calendar MCP
-                            └─► consent escalation / share (opt-in, audited)
+Ring webhook v1.1 (HMAC) ─► AccessBell ─► Fire TV / PWA   (Tier 1 caption, rules only)
+      or Ring simulator    │
+                           ├─► Tier 2: grounded triage (Bedrock / stub) + expected windows
+                           ├─► Gatekeeper: resident-schedule verification (verified / unverified / contradiction)
+                           ├─► EventBridge (optional, off by default)
+                           ├─► MCP server ◄──► Alexa+ ◄──► Calendar MCP
+                           └─► consent escalation / share (opt-in, audited)
 ```
 
 1. **Tier 1 (rules)** — instant “Someone is at the door”; never blocked on a model.
 2. **Tier 2 (LLM)** — EN/VI captions with confidence + evidence, validated by a pydantic contract;
    specific categories without grounding evidence are **demoted in code**. LLM output never reaches
    a user unvalidated.
-3. **Gatekeeper** — visitor claims (police / utility / government / pharmacy / package / family) are
-   verified only by independent signals; otherwise `unverified` + risk + challenge question.
+3. **Gatekeeper** — a visitor claim (police / utility / government / pharmacy / package / family) is
+   verified **only** by a resident-created expected window or calendar event. The visitor's words,
+   a prior user label and an unanalysed snapshot are never proof. Unverified claims get a
+   claim-specific headline, risk label and challenge question.
 4. **Memory** — “same as last time” reply suggestion when the last reply for that door had the same
    category (one tap to reuse; never automatic).
 5. **Talk** — door turns stored per event; a fixed-prompt EN/VI phrasebook with browser TTS. Free
@@ -90,9 +108,25 @@ Ring webhook (HMAC) ──► AccessBell ──► Fire TV / PWA   (Tier 1 capti
 6. **Protect** — unanswered high-urgency events can escalate to a contact the resident chose:
    default OFF, durable across restarts, at-most-once, audited, revocable.
 
+### Ring integration
+
+AccessBell consumes the Ring Partner API **webhook v1.1** envelope: `meta.version`, `meta.time`,
+`meta.request_id`, `meta.account_id` and `data.id`, `data.type`, `data.attributes.source`,
+`data.attributes.source_type`, `data.attributes.timestamp`. It verifies `X-Signature:
+sha256=<hmac-hex>` over the raw body with a constant-time compare, dedupes retries by
+`meta.request_id`, and responds well inside Ring's 5-second delivery budget. Snapshots are fetched
+out-of-band by the Ring API and are **not** treated as analysed identity evidence.
+
+For the demo, the same runtime path is exposed in-product: `POST /api/simulate/ring` builds a real
+v1.1 envelope, signs it with HMAC-SHA256, verifies the signature, and hands it to the same
+`RingWebhookHandler` used by `/webhooks/ring`. The UI panel shows the scenario and the signed result.
+The optional `data.attributes.visitor_statement` field is an **AccessBell integration extension**
+representing a door transcript; real Ring v1.1 webhooks do not carry tags, label hints or a
+transcript. This is stated plainly so the demo never pretends a field exists in the Ring API.
+
 Surfaces: **Fire TV / PWA web UI** (SSE live captions, urgency as text + color, D-pad navigation,
-EN/VI, child mode, 44 px targets) and **Alexa+ via MCP** (Streamable HTTP, JSON-RPC 2.0, spec
-2025-11-25+) with **11 tools**:
+EN/VI, child mode, 44 px targets, signed Ring simulator) and **Alexa+ via MCP** (Streamable HTTP,
+JSON-RPC 2.0, spec 2025-11-25+) with **11 tools**:
 
 | Tool | Purpose | | Tool | Purpose |
 |---|---|---|---|---|
@@ -105,18 +139,17 @@ EN/VI, child mode, 44 px targets) and **Alexa+ via MCP** (Streamable HTTP, JSON-
 
 ## AWS services
 
-AccessBell runs on AWS by default: the CDK stack deploys it with **Bedrock as the triage model**,
-the EventBridge bus, Cognito OAuth and generated Secrets Manager values. The `stub` provider is the
-offline test mode (deterministic, no credentials), not the product path.
+The AWS deployment path runs AccessBell with **Bedrock as the triage model**, the EventBridge bus,
+Cognito OAuth and generated Secrets Manager values. The `stub` provider is the offline test mode
+(deterministic, no credentials), not the product path.
 
 | Service | Role |
 |---|---|
 | **Amazon Bedrock** | Tier-2 triage through LangChain `ChatBedrockConverse` + structured `TriageResult` (Nova Lite by default). The AWS deployment runs `LLM_PROVIDER=bedrock`. |
 | **Amazon EventBridge** | Optional outbound integration: every triaged event is published to a custom bus (`EVENTBRIDGE_BUS_NAME`; empty = off). CDK creates the bus + IAM. |
-| **Amazon Cognito** | OAuth 2.1 resource server for `/mcp` (two-tier: service vs user tokens) in the CDK stack. |
+| **Amazon Cognito** | OAuth 2.1 resource server for `/mcp` (two-tier: service vs user tokens) in the CDK stack, with two app clients because Cognito does not mix `client_credentials` and auth-code grant. |
 | **Amazon SNS / SES** | Escalation and announce transport (`NOTIFIER_PROVIDER=sns|ses|demo`). |
-| **AWS CDK (ECS Fargate + ALB + RDS Postgres)** | One-command deploy with generated Secrets Manager values for API/MCP/webhook tokens. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). |
-| **AWS Lambda** *(optional)* | Host the Ring webhook if you prefer serverless ingest. |
+| **AWS CDK (ECS Fargate + ALB + RDS Postgres)** | One-command deploy with generated Secrets Manager values for API/MCP/webhook tokens; optional ACM HTTPS for a Ring callback. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/AWS.md](docs/AWS.md). |
 
 Local development defaults to the deterministic `stub` provider so tests and demos never depend on
 network or credentials; switch with `LLM_PROVIDER=bedrock` (see `.env.example`). Other providers
@@ -134,15 +167,17 @@ identical for every model.
 | Escalation fire | timeout ± 1 s | durable pending + at-most-once claim |
 
 Measured locally with `scripts/measure_latency.py` (100 simulated events, stub LLM, this repo;
-numbers vary by machine and are not production telemetry): `tier1_ms` p95 **6.5 ms**, `enrich_ms`
-p95 **12.3 ms**, `webhook_to_sse_ms` p95 **6.6 ms**. Budgets and live histograms are in `/api/metrics`.
+numbers vary by machine and are not production telemetry): one local run measured `tier1_ms` p95
+**7.6 ms**, `enrich_ms` p95 **6.8 ms**, and `webhook_to_sse_ms` p95 **7.7 ms** (n=100). Budgets and
+live histograms are in `/api/metrics`.
 `--base-url` replays the same fixtures against a deployed server and reads that server's histograms.
 
 Grounding is measurable, not asserted — same fixtures, three arms
-(`scripts/ablation_evidence.py`): `event_only` 0.5, `payload_hints` 1.0, `expected_window` 1.0
-category accuracy; and `scripts/eval_triage.py` runs 45 labeled scenarios covering the 5 categories,
-Gatekeeper outcomes, memory, grounding demotion (3 cases with an injected LLM that invents) and
-escalation arming (scored as if opted in; false-escalation and missed counts printed).
+(`scripts/ablation_evidence.py`): `event_only` 0.5, `payload_hints` 1.0 (shipped fixtures with the
+visitor statement), `expected_window` 1.0 category accuracy; and `scripts/eval_triage.py` runs 46
+labeled scenarios covering the 5 categories, Gatekeeper outcomes, memory, grounding demotion (3
+cases with an injected LLM that invents) and escalation arming (scored as if opted in;
+false-escalation and missed counts printed).
 
 Accessibility is enforced, not claimed: **pa11y WCAG2AA** runs in CI on `/` and `/?lang=vi` with a
 simulated alert (zero reported issues), captions are EN+VI and TTS-safe by test, and D-pad
@@ -152,7 +187,7 @@ navigation reaches every visible control. Statement and known gaps:
 ## Security model
 
 - Ring payloads: HMAC-SHA256 over the raw body, constant-time compare; retries deduped by
-  `meta.request_id` via hashed unique index.
+  `meta.request_id` via hashed unique index. The in-app simulator signs and verifies the same header.
 - `/api/*` gated by `API_TOKEN` on public deploys; write endpoints rate-limited per IP.
 - **Proxy headers are not trusted by default**: `FORWARDED_ALLOW_IPS` is empty → the client IP is
   the socket peer; when set, it accepts exact IPs or CIDRs (the CDK stack trusts its VPC CIDR for
@@ -181,18 +216,21 @@ live in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Simulation levels (L0 local �
 ```
 aws-access-bell/
 ├── backend/            # FastAPI app: webhook, triage, Gatekeeper, captions, MCP, escalation, brief
-│   ├── main.py         # routes, SSE stream, /mcp endpoint, metrics
+│   ├── main.py         # routes, SSE stream, /mcp endpoint, metrics, Ring simulator API
+│   ├── ring_simulator.py # signed Ring v1.1 demo scenarios (HMAC, official envelope)
 │   ├── aws_events.py   # EventBridge publisher (off by default, fail open)
 │   ├── captions.py     # EN/VI strings — single source, TTS-safe
 │   ├── triage.py       # Tier 1 rules + Tier 2 pipeline + grounding gate + verification
 │   ├── schema.sqlite.sql / schema.postgres.sql
 │   └── llm/            # stub + LangChain provider factory (Bedrock/OpenAI/Anthropic/Google/Ollama)
 ├── infra/              # AWS CDK: ECS Fargate, ALB, RDS, Cognito, EventBridge, Bedrock IAM
-├── web/                # Fire TV / PWA UI (SSE, D-pad, EN/VI)
+├── web/                # Fire TV / PWA UI (SSE, D-pad, EN/VI, Ring simulator)
 ├── mock/events/        # 7 fixture stories (Ring Partner API v1.1 envelopes)
 ├── prompts/triage.txt  # LLM prompt: TriageResult contract + guardrails
 ├── scripts/            # demo_story.py, eval_triage.py, measure_latency.py, verify_mcp.py, ablation_evidence.py, deploy_*
-├── docs/               # ARCHITECTURE, DEPLOYMENT, SIMULATION, ACCESSIBILITY, DEMO
+├── docs/               # ARCHITECTURE, DEPLOYMENT, SIMULATION, ACCESSIBILITY, DEMO, SUBMISSION, AWS, PRODUCT_FEEDBACK, FRICTION_LOG
+│   ├── accessbell-demo.srt # English captions for the narrated demo cut
+│   └── assets/         # screenshots, demo MP4, poster used by README/submission notes
 └── tests/              # pytest: sqlite + postgres, triage, captions/a11y, MCP, API, escalation, ...
 ```
 
@@ -221,6 +259,7 @@ All variables are documented in `.env.example`; the full table with platform not
 | `API_AUTH_DISABLED` / `API_TOKEN` / `DEMO_TOKEN` | `true` / – / – | Gate `/api/*` on public deploys; optional token for `/api/simulate` |
 | `RATE_LIMIT_PER_MINUTE` / `DEBOUNCE_SECONDS` / `EVENT_TTL_DAYS` / `PURGE_INTERVAL_S` | `30` / `10` / `30` / `86400` | Limiter, dedupe, retention |
 | `NOTIFIER_PROVIDER` / `SNS_TOPIC_ARN` / `SES_SENDER_EMAIL` / `ANNOUNCE_ENABLED` | `log` / – / – / `false` | Announce / escalation transport |
+| `CERTIFICATE_ARN` / `ALEXA_CALLBACK_URLS` | – | Deploy-only CDK inputs: ACM cert for an HTTPS Ring callback; Alexa+ auth-code callback(s) |
 | `FORWARDED_ALLOW_IPS` | empty | Trusted proxy IPs/CIDRs for the real client IP; empty ignores `X-Forwarded-For`; `*` trusts any peer |
 
 ## Who it is for
@@ -239,7 +278,8 @@ invented numbers.
 
 ## Ethics & privacy
 
-- No face recognition, no face embeddings; snapshot frames are single-event, never a video archive.
+- No face recognition, no face embeddings; snapshots are not analysed for identity and are never used
+  as proof of a claim.
 - Escalation and sharing are OFF by default, revocable, audited — and the resident is the user.
 - Child mode is the same consent gate, not secret monitoring: the child sees the caption, a parent
   is contacted only when allowed and nobody answers.
@@ -249,11 +289,12 @@ invented numbers.
 
 | Shipped (MVP) | Next (production path) |
 |---|---|
-| Ring webhook (HMAC, Partner API v1.1) + fixtures; Tier 1 + grounded Tier 2 | Live Ring sandbox end-to-end |
-| Gatekeeper verification; Memory; door-talk interpreter (fixed prompts, EN/VI) | Public HTTPS deploy + Postgres (CDK stack in `infra/`) |
+| Ring webhook v1.1 (HMAC, dedupe) + in-app signed Ring simulator; Tier 1 + grounded Tier 2 | Live Ring sandbox end-to-end |
+| Gatekeeper verification against resident-created windows/calendar; claim-specific captions and challenges | Richer claim taxonomy and resident-defined verification rules |
+| Memory; door-talk interpreter (fixed prompts, EN/VI) | Public HTTPS deploy + Postgres (CDK stack in `infra/`) |
 | MCP server (11 tools); Calendar MCP join (optional); daily brief; share protocol | Alexa+ connection (OAuth 2.1 / PKCE, `MCP_401_WWW_AUTHENTICATE=false`) |
 | Consent escalation (durable, at-most-once, audited); quiet hours; child captions | One-frame snapshot in consented share |
-| Evidence tooling: eval (45 cases), ablation, latency, WCAG2AA CI, docs check | Richer voice history with event citations; speak-at-door replies where APIs allow |
+| Evidence tooling: eval (46 cases), ablation, latency, WCAG2AA CI, docs check | Richer voice history with event citations; speak-at-door replies where APIs allow |
 
 **Out of scope on purpose:** face recognition · location tracking of children · scraping private
 calendars/email · medical monitoring or EMS · 24/7 video analytics.
@@ -271,6 +312,11 @@ MIT — see [LICENSE](LICENSE).
 | Simulation guide (L0→L3) | [docs/SIMULATION.md](docs/SIMULATION.md) |
 | Accessibility statement | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) |
 | Demo storyboard (3-min video) | [docs/DEMO.md](docs/DEMO.md) |
+| Demo video (local narrated cut) | [docs/assets/accessbell-demo.mp4](docs/assets/accessbell-demo.mp4) · [SRT captions](docs/accessbell-demo.srt) |
+| Submission notes (track, window, checklist) | [docs/SUBMISSION.md](docs/SUBMISSION.md) |
+| Product feedback (every API/SDK used) | [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) |
+| Friction log (hackathon bonus) | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |
+| AWS Builder notes | [docs/AWS.md](docs/AWS.md) |
 | MCP transport spec | https://modelcontextprotocol.io/specification/2025-11-25/basic/transports |
 | Alexa+ MCP toolkit | https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-overview.html |
 | Ring Partner API | https://developer.amazon.com/docs/ring/api-documentation.html |

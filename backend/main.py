@@ -29,9 +29,18 @@ from .oauth import OAuthContext, OAuthVerifier
 from .phrasebook import lookup as phrasebook_lookup
 from .phrasebook import pairs as phrasebook_pairs
 from .policy import policy_ref
+from .ring_simulator import DEFAULT_DEMO_SECRET, SCENARIOS as RING_SCENARIOS
+from .ring_simulator import build_payload, serialize_payload, sign_payload
 from .triage import EnrichmentPipeline, Tier1Rules
 from .util import RateLimiter, client_ip
-from .webhook import RingWebhookHandler, WebhookError, parse_ring_payload, request_hash, verify_ring_signature
+from .webhook import (
+    RingWebhookHandler,
+    WebhookError,
+    extract_visitor_statement,
+    parse_ring_payload,
+    request_hash,
+    verify_ring_signature,
+)
 
 logger = logging.getLogger("accessbell")
 
@@ -210,6 +219,7 @@ def _why_for(triage: dict) -> dict:
             calendar_label=calendar_label,
             context_status=context_status,
             language=language,
+            verification_status=triage.get("verification_status") or "no_claim",
         )
         for language in ("en", "vi")
     }
@@ -262,7 +272,12 @@ def _find_event(event_id: str | int):
             return ev
     for row in db.list_events(limit=50):
         raw = json.loads(row.get("raw_json") or "{}")
-        if raw.get("event_id") == str(event_id) or str(row.get("id")) == str(event_id):
+        data = raw.get("data") if isinstance(raw.get("data"), dict) else {}
+        if (
+            raw.get("event_id") == str(event_id)
+            or data.get("id") == str(event_id)
+            or str(row.get("id")) == str(event_id)
+        ):
             return db.get_event(row["id"])
     return None
 
@@ -275,6 +290,7 @@ def _serialize(event: dict) -> dict:
     event["classification"] = {"label": triage.get("category", "UNKNOWN"), "urgency": triage.get("urgency", 0)}
     event["why"] = _why_for(triage)
     event["caption_child"] = child_captions(triage.get("category") or "") or {}
+    event["visitor_statement"] = extract_visitor_statement(event["raw"])
     event["door_turns"] = db.list_door_turns(event["id"])
     return event
 
@@ -318,6 +334,7 @@ async def _enrich_async(event_id: int):
     triage = json.loads(stored.get("triage_json") or "{}")
     raw = json.loads(stored.get("raw_json") or "{}") if isinstance(stored.get("raw_json"), str) else (stored.get("raw_json") or {})
     client_event_id = raw.get("event_id") or ""
+    visitor_statement = extract_visitor_statement(raw)
     urgency_raw = triage.get("urgency", 0)
     urgency_scaled = 3 if urgency_raw >= 7 else (2 if urgency_raw >= 5 else (1 if urgency_raw >= 2 else 0))
     color = "red" if urgency_scaled >= 3 else ("amber" if urgency_scaled >= 2 else "green")
@@ -337,6 +354,7 @@ async def _enrich_async(event_id: int):
             "color": color,
             "why": _why_for(triage),
             "caption_child": child_captions(triage.get("category") or "") or {},
+            "visitor_statement": visitor_statement,
         }
     )
     escalation.schedule(event_id, triage)
@@ -348,6 +366,7 @@ async def _announce(event: dict, started: float | None = None):
     started = started if started is not None else time.perf_counter()
     raw_payload = json.loads(event.get("raw_json") or "{}") if isinstance(event.get("raw_json"), str) else (event.get("raw_json") or {})
     client_event_id = raw_payload.get("event_id") or ""
+    visitor_statement = extract_visitor_statement(raw_payload)
     raw = tier1.classify(event["kind"])
     latency_ms = round((time.perf_counter() - started) * 1000.0, 2)
     broker.publish(
@@ -365,6 +384,7 @@ async def _announce(event: dict, started: float | None = None):
             "message": raw.caption_en,
             "color": "white",
             "latency_ms": latency_ms,
+            "visitor_statement": visitor_statement,
         }
     )
     metrics.observe("tier1_ms", latency_ms)
@@ -493,6 +513,66 @@ async def simulate(request: Request, fixture: str = "doorbell_unknown"):
     return {"ok": True, "event_id": event["id"], "category": tier1.classify(event["kind"]).category.value}
 
 
+class RingSimIn(BaseModel):
+    scenario: str = "police_claim"
+    visitor_statement: str | None = None
+    device_id: str = "ring_doorbell_01"
+
+
+@app.get("/api/simulate/ring/scenarios")
+async def ring_scenarios():
+    if not settings.mock_mode:
+        raise HTTPException(status_code=404, detail="simulation endpoint disabled when mock_mode is false")
+    return {
+        "scenarios": [
+            {"key": key, "kind": spec["kind"], "statement": spec["statement"]}
+            for key, spec in RING_SCENARIOS.items()
+        ]
+    }
+
+
+@app.post("/api/simulate/ring")
+async def simulate_ring(request: Request, payload: RingSimIn | None = None):
+    if not settings.mock_mode:
+        raise HTTPException(status_code=404, detail="simulation endpoint disabled when mock_mode is false")
+    if not _bearer_ok(request, settings.demo_token):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    _rate_limited(request)
+    body_in = payload or RingSimIn()
+    if body_in.scenario not in RING_SCENARIOS:
+        raise HTTPException(status_code=400, detail=f"unknown Ring scenario: {body_in.scenario}")
+    started = time.perf_counter()
+    envelope = build_payload(
+        body_in.scenario,
+        visitor_statement=body_in.visitor_statement,
+        device_id=body_in.device_id,
+    )
+    body = serialize_payload(envelope)
+    secret = settings.ring_secret or DEFAULT_DEMO_SECRET
+    signature = sign_payload(body, secret)
+    signature_valid = verify_ring_signature(body, signature, secret)
+    if not signature_valid:
+        raise HTTPException(status_code=500, detail="Ring simulator signature self-check failed")
+    try:
+        event, deduped = webhook_handler.handle(body, debounce=False)
+    except WebhookError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not deduped:
+        await _announce(event, started)
+    metrics.observe("webhook_to_sse_ms", (time.perf_counter() - started) * 1000.0)
+    statement = extract_visitor_statement(envelope)
+    return {
+        "ok": True,
+        "event_id": event["id"],
+        "ring_event_id": envelope["data"]["id"],
+        "scenario": body_in.scenario,
+        "version": envelope["meta"]["version"],
+        "signature_valid": signature_valid,
+        "visitor_statement": statement,
+        "deduped": deduped,
+    }
+
+
 @app.get("/api/events")
 async def list_events(since: str | None = None, until: str | None = None, limit: int = 50):
     rows = await asyncio.to_thread(db.list_events, since=since, until=until, limit=max(1, min(limit, 500)))
@@ -554,14 +634,15 @@ class DoorTalkIn(BaseModel):
 
 
 @app.post("/api/events/{event_id}/door-talk")
-async def add_door_talk(event_id: int, payload: DoorTalkIn):
-    if db.get_event(event_id) is None:
+async def add_door_talk(event_id: str, payload: DoorTalkIn):
+    event = _find_event(event_id)
+    if event is None:
         raise HTTPException(status_code=404, detail="unknown event")
     try:
-        turn_id = db.add_door_turn(event_id, payload.speaker, payload.text, payload.lang)
+        turn_id = db.add_door_turn(event["id"], payload.speaker, payload.text, payload.lang)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    turn = next((t for t in db.list_door_turns(event_id) if t["id"] == turn_id), None)
+    turn = next((t for t in db.list_door_turns(event["id"]) if t["id"] == turn_id), None)
     # Phrasebook only: exact fixed-prompt match, else null (never fake
     # a free-text translation). Translation preview in the UI does not
     # store a turn — it uses the same fixed prompts client-side.
@@ -569,10 +650,11 @@ async def add_door_talk(event_id: int, payload: DoorTalkIn):
 
 
 @app.get("/api/events/{event_id}/door-talk")
-async def list_door_talk(event_id: int):
-    if db.get_event(event_id) is None:
+async def list_door_talk(event_id: str):
+    event = _find_event(event_id)
+    if event is None:
         raise HTTPException(status_code=404, detail="unknown event")
-    return {"turns": db.list_door_turns(event_id)}
+    return {"turns": db.list_door_turns(event["id"])}
 
 
 class ExpectedIn(BaseModel):

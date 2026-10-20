@@ -80,6 +80,35 @@ curl -X POST "http://localhost:8080/api/simulate?fixture=motion_night"
 
 The Fire TV screen immediately renders the Tier 1 raw caption in <200 ms, followed by the enriched Tier 2 card once triage completes.
 
+### Step 2.4: Fire the signed Ring v1.1 simulator
+
+The UI includes a **Ring simulator** panel. It builds a Ring Partner API v1.1 envelope, signs it
+with HMAC-SHA256, verifies `X-Signature`, and hands it to the same `RingWebhookHandler` used by the
+live `/webhooks/ring` endpoint. No Ring device or account is required.
+
+```bash
+# List demo scenarios
+curl -s http://localhost:8080/api/simulate/ring/scenarios
+
+# Fire a police-claim scenario (unverified Gatekeeper demo)
+curl -s -X POST http://localhost:8080/api/simulate/ring \
+  -H "Content-Type: application/json" \
+  -d '{"scenario":"police_claim"}'
+
+# Override the simulated visitor statement
+curl -s -X POST http://localhost:8080/api/simulate/ring \
+  -H "Content-Type: application/json" \
+  -d '{"scenario":"package","visitor_statement":"I have a parcel for Mai."}'
+```
+
+The response includes `version: "1.1"`, `signature_valid: true`, the internal `event_id` and the
+`ring_event_id`. The same event then appears over SSE and in `/api/events`.
+
+**Honesty note:** `data.attributes.visitor_statement` is an AccessBell integration extension that
+represents a door transcript. Real Ring v1.1 webhooks contain `meta` + `data.attributes.source` /
+`source_type` / `timestamp`, not tags, label hints or a transcript. The simulator exists to exercise
+the runtime path and the Gatekeeper without pretending those fields are part of the Ring API.
+
 ---
 
 ## 3. Level 1: Protocol & Signed Replay
@@ -113,9 +142,9 @@ curl -N http://localhost:8080/api/stream
 
 Example stream output:
 ```text
-data: {"type": "alert_raw", "event_id": 1, "text": "Someone is at the door", "text_en": "Someone is at the door", "text_vi": "Có người ở cửa", "category": "unknown", "latency_ms": 2.1}
+data: {"type": "alert_raw", "event_id": 1, "text": "Someone is at the door", "text_en": "Someone is at the door", "text_vi": "Có người ở cửa", "category": "UNKNOWN_VISITOR", "latency_ms": 2.1, "visitor_statement": "I am a police officer. Please open the door."}
 
-data: {"type": "alert_enriched", "event_id": 1, "status": "enriched", "triage": {"category": "MED_DELIVERY", "urgency": 8, "caption_en": "Pharmacy delivery at door", "caption_vi": "Giao thuốc tại cửa", "grounding": "grounded"}}
+data: {"type": "alert_enriched", "event_id": 1, "status": "enriched", "triage": {"category": "UNKNOWN_VISITOR", "urgency": 4, "caption_en": "Visitor claims to be police. Not verified.", "caption_vi": "Khách nói là công an. Chưa xác minh.", "grounding": "generic", "verification_status": "unverified", "risk_level": "high"}}
 ```
 
 ### Step 3.3: Test MCP Tools via JSON-RPC
@@ -204,6 +233,7 @@ When ready for physical hardware validation:
 | Issue | Cause | Resolution |
 |---|---|---|
 | `POST /api/simulate` returns 404 | `MOCK_MODE=false` in production | Set `MOCK_MODE=true` for testing, or use `/webhooks/ring` with signed payloads |
+| `POST /api/simulate/ring` returns 404 | `MOCK_MODE=false` in production | Set `MOCK_MODE=true`; the simulator is deliberately demo-only |
 | `POST /webhooks/ring` returns 401 | Invalid HMAC signature | Verify `RING_WEBHOOK_SECRET` matches signing key, or use `scripts/ring_replay.py --secret <key>` |
 | MCP tool call returns 401 | Missing OAuth token or bearer token | Pass `Authorization: Bearer <token>` matching `MCP_HTTP_TOKEN` or Cognito JWT |
 | SSE disconnects after 60 seconds | Load balancer idle timeout | Ensure ALB `idle_timeout.timeout_seconds` is set to 300 (configured in CDK stack) |

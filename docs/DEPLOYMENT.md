@@ -68,7 +68,7 @@ Retention: `EVENT_TTL_DAYS` (default 30) purged at startup; no video is stored.
 |---|---|---|---|
 | **Local (demo)** | `python -m backend` (honors `PORT`) | SQLite file | nothing else needed |
 | **Docker** | `docker compose up --build` | `dbdata` volume | needs a Docker daemon |
-| **AWS (ECS Fargate + ALB)** | `scripts/deploy_aws.sh [region]` (CDK) | RDS Postgres | Turnkey Fargate, ALB (idle timeout 300s for SSE), Cognito OAuth 2.1, Bedrock IAM (`LLM_PROVIDER=bedrock`), EventBridge bus, Secrets Manager-generated API/MCP/webhook tokens |
+| **AWS (ECS Fargate + ALB)** | `scripts/deploy_aws.sh [region]` (CDK) | RDS Postgres | Turnkey Fargate, ALB (idle timeout 300s for SSE), Cognito OAuth 2.1, Bedrock IAM (`LLM_PROVIDER=bedrock`), EventBridge bus, Secrets Manager-generated API/MCP/webhook tokens. Set `CERTIFICATE_ARN` for HTTPS; Ring requires an HTTPS callback |
 | **GCP Cloud Run** | `scripts/deploy_cloudrun.sh <project> [region]` | SQLite is ephemeral → use Postgres | scale-to-zero (`min-instances 0`) is safe; REST gated by `API_TOKEN` |
 | **Cloudflare** | Containers (or TLS/Zero Trust in front) | external Postgres | Python does **not** run on Workers |
 | **VM / k8s** | container + `DB_URL` | Postgres | `/health` healthcheck |
@@ -92,6 +92,27 @@ are options, not requirements — the same image runs on GCP or a laptop with `L
 Cloudflare note: the Python FastAPI app does **not** run on Workers as-is; use Cloudflare Containers
 or keep Cloudflare for TLS/Zero Trust in front of the app. Bedrock needs AWS credentials regardless
 of where the app runs.
+
+### 3a. Ring-compatible HTTPS and Alexa+ OAuth
+
+The CDK stack exposes HTTP by default so it can be smoke-tested without a domain. Ring requires an
+HTTPS callback, so for a real Ring app create an ACM certificate for your domain and deploy with:
+
+```bash
+export CERTIFICATE_ARN=arn:aws:acm:<region>:<account>:certificate/<id>
+export ALEXA_CALLBACK_URLS=https://<your-alexa-callback>   # optional; enables auth-code + PKCE
+./scripts/deploy_aws.sh <region>
+```
+
+With `CERTIFICATE_ARN` set, the stack adds an HTTPS listener, redirects HTTP to HTTPS, and prints
+`ServiceUrl` / `RingWebhookUrl` using `https://`. Without it, those outputs are HTTP and are **not**
+Ring-callback compatible.
+
+The service client uses Cognito `client_credentials` for discovery/ping only (`mcp:service`). The
+optional Alexa+ client uses authorization-code grant with `mcp:tools` / `mcp:resources`; set
+`ALEXA_CALLBACK_URLS` to the callback registered with your Alexa+ MCP integration. Both client IDs
+are passed to the app as `OAUTH_CLIENT_IDS`. Cognito does not allow `client_credentials` and
+authorization-code grant on the same app client, which is why the stack creates two clients.
 
 ---
 
@@ -122,6 +143,7 @@ of where the app runs.
 | Calendar MCP (J2, optional) | `CALENDAR_MCP_URL`, `CALENDAR_MCP_TOKEN` |
 | Latency budgets | `CONTEXT_BUDGET_MS`, `ENRICH_BUDGET_MS`, `QUIET_HOURS_START`, `QUIET_HOURS_END` |
 | Ops | `DEMO_TOKEN`, `RATE_LIMIT_PER_MINUTE`, `DEBOUNCE_SECONDS`, `EVENT_TTL_DAYS`, `PURGE_INTERVAL_S` |
+| AWS deploy only (not read by the app) | `CERTIFICATE_ARN`, `ALEXA_CALLBACK_URLS` |
 
 Secrets: **GCP Secret Manager** (`--set-secrets`), **AWS SSM/Secrets Manager**, **Cloudflare**
 (`wrangler secret put`), or a local `.env` (never committed).

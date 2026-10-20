@@ -1,0 +1,62 @@
+1
+00:00:00,100 --> 00:00:14,020
+Meet Mai. She is 72, lives alone, and is hard of
+hearing. For her, the doorbell was a black box.
+AccessBell turns a Ring door event into accessible
+text on the screen she already owns.
+
+2
+00:00:14,720 --> 00:00:32,050
+This is not a mock JSON file. We choose a
+prescription delivery. AccessBell builds a Ring
+Partner API v1.1 event, signs it with HMAC-SHA256,
+verifies the signature, and sends it through the
+same handler as a live Ring webhook.
+
+3
+00:00:32,750 --> 00:00:53,080
+Tier 1 answers in milliseconds. Tier 2, grounded in
+the resident's own schedule, refines the caption and
+shows its evidence. The visitor claims a pharmacy
+delivery. It is plausible, but the claim is not
+verified yet. AccessBell shows the claim, the
+evidence, and the challenge instead of inventing
+certainty.
+
+4
+00:00:53,780 --> 00:01:18,550
+Now the attack. The visitor says, "I am a police
+officer, open the door." AccessBell does not verify
+that claim from the visitor's words. The headline
+says, "Visitor claims to be police. Not verified."
+Risk is high. The challenge asks for a badge number
+and a callback number, and tells her not to open the
+door. Only the not-now action is offered.
+
+5
+00:01:19,250 --> 00:01:41,470
+Now the resident creates a police patrol window in
+her own door calendar. Same claim, same signed Ring
+event. This time the Gatekeeper finds
+resident-created context that matches. Verified. Low
+risk. And the caption says the visit matches her
+schedule. The gate is what she scheduled, not what
+the stranger said.
+
+6
+00:01:42,170 --> 00:02:01,010
+Every caption is English and Vietnamese, short, and
+TTS-safe. Urgency always carries a text label, never
+color alone. Reply targets are large, and D-pad
+navigation reaches every action. The interpreter is
+a fixed-prompt phrasebook, never a fake free-text
+translation.
+
+7
+00:02:01,710 --> 00:02:20,910
+Escalation is off by default, revocable, durable,
+and audited. The same door tools are exposed over
+MCP for Alexa+, and the deployment path uses
+Bedrock, ECS Fargate, RDS, Cognito, and EventBridge.
+Ring in, accessible text out, with the resident in
+control.

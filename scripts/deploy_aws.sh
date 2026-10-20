@@ -19,9 +19,22 @@ fi
 
 REGION="${1:-${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}}"
 STACK_NAME="${STACK_NAME:-AccessBellStack}"
+CDK_CONTEXT_ARGS=()
+
+if [ -n "${CERTIFICATE_ARN:-}" ]; then
+  CDK_CONTEXT_ARGS+=("-c" "certificate_arn=${CERTIFICATE_ARN}")
+fi
+if [ -n "${ALEXA_CALLBACK_URLS:-}" ]; then
+  CDK_CONTEXT_ARGS+=("-c" "alexa_callback_urls=${ALEXA_CALLBACK_URLS}")
+fi
 
 echo "=== AccessBell AWS CDK Deployment ==="
 echo "Target Region: ${REGION}"
+if [ -n "${CERTIFICATE_ARN:-}" ]; then
+  echo "HTTPS: ACM certificate ${CERTIFICATE_ARN}"
+else
+  echo "HTTPS: disabled (set CERTIFICATE_ARN for a Ring-compatible HTTPS callback)"
+fi
 
 if ! command -v aws >/dev/null 2>&1; then
   echo "Error: AWS CLI ('aws') is not installed." >&2
@@ -62,7 +75,7 @@ echo "Bootstrapping CDK in region ${REGION} if needed..."
 cdk bootstrap "aws://${ACCOUNT_ID}/${REGION}"
 
 echo "Deploying ${STACK_NAME}..."
-cdk deploy --require-approval never
+cdk deploy --require-approval never "${CDK_CONTEXT_ARGS[@]}"
 
 echo
 echo "=== Deployment Complete ==="

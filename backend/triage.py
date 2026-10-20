@@ -7,32 +7,37 @@ from pydantic import BaseModel, Field, field_validator
 from pydantic import ValidationError
 
 from .captions import CHALLENGE as CHALLENGE_TEXT
+from .captions import CHALLENGE_BY_CLAIM, CLAIM as CLAIM_CAPTIONS
+from .captions import CLAIM_VERIFIED
 from .captions import MEMORY_ACTION as MEMORY_ACTION_LABELS
 from .captions import MEMORY_BASIS as MEMORY_BASIS_TEMPLATES
 from .captions import MEMORY_CATEGORY as MEMORY_CATEGORY_LABELS
 from .captions import TIER1 as TIER1_CAPTIONS
 from .captions import generic_captions, quiet_captions
 from .util import is_quiet_hours
-from .webhook import extract_payload_hints
+from .webhook import extract_payload_hints, extract_visitor_statement
 
 KNOWN_EVIDENCE_SOURCES = frozenset(
-    {"doorbell", "motion", "expected_context", "calendar", "time_pattern", "user_label", "snapshot"}
+    {"doorbell", "motion", "expected_context", "calendar", "time_pattern", "user_label", "visitor_statement"}
 )
 
-# Gatekeeper: visitor claims, mapped from payload tags / label_hint.
-# The visitor's own claim is NOT corroboration: only independent signals
-# (expected window, calendar event, user label, snapshot) can verify it.
 CLAIM_KEYWORDS = {
     "police": ["police", "officer", "cop"],
     "utility": ["utility", "power company", "electric company", "water company", "gas company", "power", "electric", "water"],
     "government": ["government", "city council", "official", "inspector"],
     "pharmacy": ["pharmacy", "medicine", "med", "prescription", "drug", "doctor"],
     "package": ["package", "delivery", "courier", "parcel", "shipment"],
-    "family": ["family", "guest", "visitor", "relative", "friend", "neighbor", "neighbour"],
+    "family": ["family", "relative", "friend", "neighbor", "neighbour"],
 }
 HIGH_STAKES_CLAIMS = {"police", "utility", "government", "pharmacy"}
-CHALLENGE_EN = CHALLENGE_TEXT["en"]
-CHALLENGE_VI = CHALLENGE_TEXT["vi"]
+CONTRADICTION_CLAIMS = {"police", "utility", "government"}
+
+
+def _challenge(claim: str) -> tuple[str, str]:
+    text = CHALLENGE_BY_CLAIM.get(claim, CHALLENGE_TEXT)
+    return text["en"], text["vi"]
+
+
 REPLY_ACTIONS = {"leave_at_door", "coming", "not_now", "waiting_for_parent"}
 
 
@@ -42,21 +47,37 @@ def _text_matches_claim(text: str, claim: str) -> bool:
 
 
 def extract_claim(raw: dict) -> str:
-    """Return the canonical claim key from payload tags / label_hint, or ""."""
+    """Return the canonical claim key from the visitor statement / payload hints, or ""."""
     tags, hint = extract_payload_hints(raw)
-    text = " ".join(tags + [hint]).lower()
+    statement = extract_visitor_statement(raw)
+    text = " ".join(tags + [hint, statement]).lower()
     for claim in ("police", "utility", "government", "pharmacy", "package", "family"):
         if _text_matches_claim(text, claim):
             return claim
     return ""
 
 
-def verify_claim(raw: dict, expected, calendar, labels, evidence) -> dict:
-    """Verify a visitor claim against independent corroboration.
+def _scheduled_claims(expected, calendar) -> set[str]:
+    claims = set()
+    for window in expected or []:
+        text = str(window.get("label") or "")
+        for claim in CLAIM_KEYWORDS:
+            if _text_matches_claim(text, claim):
+                claims.add(claim)
+    for item in calendar or []:
+        text = str(item.get("title") or item.get("label") or "")
+        for claim in CLAIM_KEYWORDS:
+            if _text_matches_claim(text, claim):
+                claims.add(claim)
+    return claims
 
-    Returns verification_status / risk_level / claimed_identity / challenge
-    strings. A claim with no independent support is unverified (never
-    verified by the visitor's own words alone).
+
+def verify_claim(raw: dict, expected, calendar) -> dict:
+    """Verify a visitor claim against resident-created context only.
+
+    A claim is verified only by an expected window or a calendar event the
+    resident created. The visitor's own words, a previous user label, and an
+    unanalysed snapshot are never proof of identity.
     """
     claim = extract_claim(raw)
     if not claim:
@@ -67,23 +88,8 @@ def verify_claim(raw: dict, expected, calendar, labels, evidence) -> dict:
             "challenge_question_en": "",
             "challenge_question_vi": "",
         }
-    supported = any((e or "").startswith("snapshot") for e in (evidence or []))
-    if not supported:
-        for window in expected or []:
-            if _text_matches_claim(str(window.get("label") or ""), claim):
-                supported = True
-                break
-    if not supported:
-        for item in calendar or []:
-            if _text_matches_claim(str(item.get("title") or item.get("label") or ""), claim):
-                supported = True
-                break
-    if not supported:
-        for item in labels or []:
-            if _text_matches_claim(str(item.get("label") or ""), claim):
-                supported = True
-                break
-    if supported:
+    scheduled = _scheduled_claims(expected, calendar)
+    if claim in scheduled:
         return {
             "verification_status": "verified",
             "risk_level": "low",
@@ -91,25 +97,22 @@ def verify_claim(raw: dict, expected, calendar, labels, evidence) -> dict:
             "challenge_question_en": "",
             "challenge_question_vi": "",
         }
-    expected_claims = set()
-    for window in expected or []:
-        for candidate in CLAIM_KEYWORDS:
-            if _text_matches_claim(str(window.get("label") or ""), candidate):
-                expected_claims.add(candidate)
-    if expected_claims and claim not in expected_claims:
+    if claim in CONTRADICTION_CLAIMS and scheduled:
+        challenge_en, challenge_vi = _challenge(claim)
         return {
             "verification_status": "contradiction",
             "risk_level": "high",
             "claimed_identity": claim,
-            "challenge_question_en": CHALLENGE_EN,
-            "challenge_question_vi": CHALLENGE_VI,
+            "challenge_question_en": challenge_en,
+            "challenge_question_vi": challenge_vi,
         }
+    challenge_en, challenge_vi = _challenge(claim)
     return {
         "verification_status": "unverified",
         "risk_level": "high" if claim in HIGH_STAKES_CLAIMS else "medium",
         "claimed_identity": claim,
-        "challenge_question_en": CHALLENGE_EN,
-        "challenge_question_vi": CHALLENGE_VI,
+        "challenge_question_en": challenge_en,
+        "challenge_question_vi": challenge_vi,
     }
 
 
@@ -238,7 +241,7 @@ class EnrichmentPipeline:
             fallback = self._rules.classify(event["kind"])
             fallback.context_status = context_status
             return self._apply_verification_and_memory(
-                fallback, raw, expected, calendar, labels, event.get("device_id") or ""
+                fallback, raw, expected, calendar, event.get("device_id") or ""
             ), False
         try:
             result = TriageResult.model_validate(payload)
@@ -246,7 +249,7 @@ class EnrichmentPipeline:
             fallback = self._rules.classify(event["kind"])
             fallback.context_status = context_status
             return self._apply_verification_and_memory(
-                fallback, raw, expected, calendar, labels, event.get("device_id") or ""
+                fallback, raw, expected, calendar, event.get("device_id") or ""
             ), False
         result = self._apply_guardrails(result)
         result.context_status = context_status
@@ -254,18 +257,38 @@ class EnrichmentPipeline:
             result = self._demote(result, event["kind"])
             result.context_status = context_status
         result = self._apply_verification_and_memory(
-            result, raw, expected, calendar, labels, event.get("device_id") or ""
+            result, raw, expected, calendar, event.get("device_id") or ""
         )
         return self._apply_quiet_hours(result, event["occurred_at"]), True
 
-    def _apply_verification_and_memory(self, result, raw, expected, calendar, labels, device_id):
+    def _apply_verification_and_memory(self, result, raw, expected, calendar, device_id):
         """Gatekeeper verification + same-as-last-time memory, on any path."""
-        verification = verify_claim(raw, expected, calendar, labels, result.evidence)
+        verification = verify_claim(raw, expected, calendar)
         result.verification_status = verification["verification_status"]
         result.risk_level = verification["risk_level"]
         result.claimed_identity = verification["claimed_identity"]
         result.challenge_question_en = verification["challenge_question_en"]
         result.challenge_question_vi = verification["challenge_question_vi"]
+        if verification["verification_status"] in {"unverified", "contradiction"}:
+            claim_caption = CLAIM_CAPTIONS.get(verification["claimed_identity"])
+            if claim_caption:
+                result.caption_en = claim_caption["en"]
+                result.caption_vi = claim_caption["vi"]
+        elif verification["verification_status"] == "verified":
+            claim_caption = CLAIM_VERIFIED.get(verification["claimed_identity"])
+            if claim_caption:
+                result.caption_en = claim_caption["en"]
+                result.caption_vi = claim_caption["vi"]
+        claim = verification["claimed_identity"]
+        if claim in {"police", "utility", "government"}:
+            if verification["verification_status"] == "verified":
+                result.suggested_replies = ["coming", "not_now"]
+            else:
+                result.suggested_replies = ["not_now"]
+        elif claim in {"pharmacy", "package"}:
+            result.suggested_replies = ["leave_at_door", "coming", "not_now"]
+        elif claim == "family":
+            result.suggested_replies = ["coming", "not_now", "waiting_for_parent"]
         last_reply = getattr(self._db, "last_reply_for_device", None)
         if last_reply is not None and device_id:
             try:
@@ -341,11 +364,11 @@ class EnrichmentPipeline:
         if result.category in {Category.UNKNOWN_VISITOR, Category.MOTION_ANOMALY}:
             return True
         evidence_grounded = any(
-            evidence.startswith(("expected_context", "user_label", "snapshot", "calendar"))
+            evidence.startswith(("expected_context", "user_label", "calendar", "visitor_statement"))
             for evidence in result.evidence
         )
         tags, label_hint = extract_payload_hints(raw)
-        payload_grounded = bool(tags or label_hint)
+        payload_grounded = bool(tags or label_hint or extract_visitor_statement(raw))
         if not (evidence_grounded or payload_grounded):
             return False
         return result.confidence >= 0.6 or bool(expected)

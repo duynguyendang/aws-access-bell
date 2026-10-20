@@ -125,24 +125,29 @@ door memory (labels, expected context).
 
 ```
 Ring ding
-  → POST /webhooks/ring  (verify HMAC)
+  → POST /webhooks/ring  (verify HMAC over the raw v1.1 body)
   → insert Event(status=ingested)
   → Tier1: raw category from event type
-  → SSE: { type: "alert_raw", text, text_en, text_vi, category, latency_ms }
+  → SSE: { type: "alert_raw", text, text_en, text_vi, category, latency_ms, visitor_statement }
   → async Tier2:
-        load expected_context + today's stats
+        load expected_context + optional Calendar MCP events
         call Bedrock (structured output)
+        validate + ground + Gatekeeper verification
         update Event(triage JSON)
-        SSE: { type: "alert_enriched", caption, color, confidence, evidence }
+        SSE: { type: "alert_enriched", caption, color, confidence, evidence, verification_status }
   → optional Alexa announce adapter
 ```
 
-### 3.2 User ground truth (multi-turn memory)
+The optional `visitor_statement` is an AccessBell extension representing a door transcript; the
+official Ring v1.1 envelope itself has no tags, label hints or transcript.
+
+### 3.2 Reply memory (not identity proof)
 
 ```
 User: quick reply or MCP confirm_event(event_id, label="pharmacy")
   → store Label(event_id | pattern_key)
-  → future events with similar window/device use prior as evidence
+  → same category on a later visit → suggest the same reply
+  → prior labels are NEVER used to verify a visitor's identity claim
 ```
 
 ### 3.3 Voice Q&A (multi-MCP)
@@ -189,6 +194,24 @@ Durable by design: the timer lives in the DB, so a crash/restart/scale-to-zero b
 and the deadline still delivers. Claiming is a single conditional DELETE, so N instances cannot
 double-notify.
 
+### 3.6 Gatekeeper (claim verification)
+
+```
+visitor_statement / payload hint
+  → extract the claim (police | utility | government | pharmacy | package | family)
+  → collect resident-created context for this event time:
+        expected_context windows + optional Calendar MCP events
+  → claim is in the resident context?
+        yes → verified, low risk, claim-specific "matches your schedule" caption
+        no  → unverified + risk (high for police/utility/government/pharmacy)
+              + claim-specific challenge caption and question
+        authority claim while the resident scheduled something else
+              → contradiction, high risk
+  → a snapshot, a previous label and the visitor's own words are never proof
+```
+
+The challenge/caption text is fixed product copy in `backend/captions.py`, never model output.
+
 ---
 
 ## 4. Components
@@ -220,6 +243,7 @@ double-notify.
 | `storage/sqlite.py` / `storage/postgres.py` | Dialects: connect, SQL translation, schema, insert-id |
 | `schema.sqlite.sql` / `schema.postgres.sql` | DDL per dialect |
 | `oauth.py` | OAuth 2.1 resource-server verification (JWKS, scopes, `Cf-Access-Jwt-Assertion`) |
+| `ring_simulator.py` | Ring Partner API v1.1 demo envelopes + HMAC signing for the in-app simulator |
 | `escalation.py` | `EscalationManager`: durable pending rows + resume-on-boot + acknowledge/audit |
 | `util.py` | `RateLimiter`, ISO-8601 helpers |
 
@@ -232,11 +256,13 @@ double-notify.
 | `/api/stream` | GET | SSE live alerts (`alert_raw`, `alert_enriched`) |
 | `/webhooks/ring` | POST | Ring events (HMAC, rate-limited, debounced) |
 | `/api/simulate?fixture=` | POST | Inject mock fixture (optional `DEMO_TOKEN`) |
+| `/api/simulate/ring` | POST | Build a signed Ring v1.1 event and ingest it through the same handler (`scenario`, optional `visitor_statement`, `device_id`) |
+| `/api/simulate/ring/scenarios` | GET | Demo scenario catalog for the in-app Ring panel |
 | `/api/events[?since&until&limit]` | GET | Event history |
 | `/api/events/{id}` | GET | Single-event read-back (verify state written by another path) |
 | `/api/events/{id}/reply` | POST | Quick reply (`leave_at_door`/`coming`/`not_now`/`waiting_for_parent`) |
 | `/api/events/{id}/confirm` | POST | Ground-truth label |
-| `/api/events/{id}/door-talk` | GET/POST | Door-talk turns: list / store one turn; fixed-prompt phrasebook preview (never free-text translation) |
+| `/api/events/{id}/door-talk` | GET/POST | Door-talk turns: list / store one turn; accepts an internal id or a Ring event id; fixed-prompt phrasebook preview (never free-text translation) |
 | `/api/expected` | GET/POST | Door calendar: list / add expected-context windows |
 | `/api/expected/{id}` | DELETE | Revoke a door-intent window |
 | `/api/brief[?date&lang]` | GET | Daily summary (EN/VI) |
@@ -326,7 +352,12 @@ placeholders/`now()`/`RETURNING id` so the same method calls work on both.
   "suggested_replies": ["leave_at_door", "coming", "not_now"],
   "do_not_invent": true,
   "grounding": "grounded | generic | demoted_insufficient_evidence",
-  "context_status": "ok | timeout | disabled"
+  "context_status": "ok | timeout | disabled",
+  "verification_status": "verified | unverified | contradiction | no_claim",
+  "risk_level": "low | medium | high",
+  "claimed_identity": "police | utility | government | pharmacy | package | family | ''",
+  "challenge_question_en": "",
+  "challenge_question_vi": ""
 }
 ```
 
@@ -335,23 +366,26 @@ placeholders/`now()`/`RETURNING id` so the same method calls work on both.
 
 Rules:
 
-- Missing snapshot → do not claim visual detail.  
-- Missing user label → do not claim named identity.  
+- No analysed image → do not claim visual detail.
+- Missing user label → do not claim named identity.
+- A visitor statement is a topic signal, never identity proof.
 - Prefer `UNKNOWN_*` over hallucination.
 
 **Enforced in code** (`triage.py`):
 
 - `TriageResult` is a pydantic model: category is an enum, `confidence` is 0–1,
   `urgency` is 0–10, evidence values must begin with a known source
-  (`doorbell | motion | expected_context | calendar | time_pattern | user_label | snapshot`),
+  (`doorbell | motion | expected_context | calendar | time_pattern | user_label | visitor_statement`),
   `caption_en` must be non-empty.
 - `EnrichmentPipeline` re-validates LLM output; on any validation error it falls back
   to Tier 1 (`ok=False`, status `enrichment_failed`).
 - Grounding rule: non-generic categories (`MED_DELIVERY`, `PACKAGE_DELIVERY`,
   `FAMILY_VISITOR`) require grounding signal — evidence from `expected_context` /
-  `calendar` / `user_label` / `snapshot`, or an explicit payload hint — otherwise they are
+  `calendar` / `user_label` / `visitor_statement` — otherwise they are
   **demoted** to `UNKNOWN_VISITOR` with `grounding=demoted_insufficient_evidence` (still
   `ok=True`: enrichment succeeded, the system declined to over-claim).
+- Gatekeeper rule: `verified` is possible only from resident-created `expected_context` or
+  `calendar` entries. The visitor's statement, prior user labels and snapshots never verify a claim.
 - `grounding` is one of `grounded`, `generic`, `demoted_insufficient_evidence`; the API/SSE
   attach a plain-language `why` line (EN/VI, from `captions.py`) and a child-safe caption.
 - `context_status` records the calendar join (`ok` within `CONTEXT_BUDGET_MS`, `timeout`
@@ -560,8 +594,8 @@ Reference: [langchain-aws ChatBedrockConverse](https://python.langchain.com/docs
 
 ```
 MOCK_MODE=true
-  → skip live Ring client
-  → POST /api/simulate or scripts/demo_local.py
+  → POST /api/simulate/ring (signed Ring v1.1 envelope, same handler as the live webhook)
+  → POST /api/simulate?fixture=... or scripts/demo_local.py
   → fixtures in mock/events/*.json
 ```
 
@@ -569,10 +603,11 @@ Suggested fixtures:
 
 | File | Story |
 |---|---|
-| `doorbell_unknown.json` | Generic visitor |
-| `doorbell_package_window.json` | Matches expected package window |
-| `doorbell_med.json` | Aligns with expected pharmacy context |
-| `doorbell_family.json` | Grounded family visit (needs hint/expected context) |
+| `doorbell_unknown.json` | Generic visitor (no claims) |
+| `doorbell_package_window.json` | Visitor claims a package delivery |
+| `doorbell_med.json` | Visitor claims a prescription delivery |
+| `doorbell_family.json` | Visitor claims to be family |
+| `doorbell_police_claim.json` | Visitor claims to be police (unverified; Gatekeeper demo) |
 | `motion_only.json` | Noise / pass-by |
 | `motion_night.json` | Quiet-hours motion |
 
@@ -586,7 +621,7 @@ This keeps the **demo path deterministic** while live Ring remains a documented 
 - Do not log full tokens.  
 - MCP HTTP: **OAuth 2.1 (JWKS-verified JWT) two-tier** when `OAUTH_ISSUER` is set; service tokens
   cannot act for users; local `MCP_HTTP_TOKEN` fallback only for offline demo; `MCP_ORIGIN`
-  allowlist; `/api/simulate` can require `DEMO_TOKEN`.  
+  allowlist; `/api/simulate` and `/api/simulate/ring` can require `DEMO_TOKEN`.
 - Per-IP rate limiting (default 30 req/min) on webhook + simulate endpoints; limiter prunes keys.  
 - `/api/*` requires `API_TOKEN` when `API_AUTH_DISABLED=false` (public deploys); `/`, `/assets` and
   `/health` stay public and the UI bootstraps its cookie from `/?token=…`.  
@@ -632,7 +667,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (333 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (419 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 
@@ -651,14 +686,14 @@ variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on S
 | `tests/test_webhook.py` | HMAC verify (valid/tampered/dev-mode/`sha256=` prefix), Partner API v1.1 parse, `request_id` idempotency beyond debounce, mock fixtures are v1.1, ingest, debounce window, invalid JSON |
 | `tests/test_db.py` | Expected-window matching, TTL purge, debounce query, labels, prefs, triage persistence, **interrupted schema self-heal recovery** |
 | `tests/test_mcp_server.py` | All **11** AccessBell MCP tools, JSON-RPC initialize/-32601/-32602, notifications, evidence in detail |
-| `tests/test_api.py` | Full HTTP surface: simulate, webhook+signature (v1.1 envelope, `X-Ring-Signature` alias), quick reply, confirm, brief EN/VI, consent-share+audit, prefs validation, MCP bearer/origin, `MCP_401_WWW_AUTHENTICATE` toggle, SSE broker format |
+| `tests/test_api.py` | Full HTTP surface: simulate, signed Ring v1.1 simulator, webhook+signature (v1.1 envelope, `X-Ring-Signature` alias), quick reply, confirm, brief EN/VI, consent-share+audit, prefs validation, MCP bearer/origin, `MCP_401_WWW_AUTHENTICATE` toggle, SSE broker format |
 | `tests/test_escalation.py` | Safety net: policy off by default, fires after timeout w/ audit, reply stops it (REST+MCP), low-urgency skip, revoked contacts never notified, **pending survives restart**, **at-most-once claim** |
 | `tests/test_oauth.py` | OAuth 2.1: service/user tiers, JWKS/issuer/aud/exp/resource checks, `WWW-Authenticate` discovery on 401, **Cf-Access-Jwt-Assertion**, Cognito client IDs and scopes, local-token fallback |
 | `tests/test_notifier.py` | AWS SNS and SES transports with fallback for demo mode |
-| `tests/test_captions.py` | Accessibility guardrails: EN+VI present, TTS-safe, length-bounded, Partner API kinds mapped, VI door-word regression, brief templates in both languages |
+| `tests/test_captions.py` | Accessibility guardrails: EN+VI present, TTS-safe, length-bounded, claim captions/challenges, Partner API kinds mapped, VI door-word regression, brief templates in both languages |
 | `tests/test_storage_dialects.py` | SQL translation per dialect (`?`→`%s`, `now()`, `RETURNING id`, DROP … CASCADE) |
 | `tests/test_llm_factory.py` | Provider factory (stub/ollama), unknown provider, missing API key (skipped if no langchain) |
-| `tests/test_gatekeeper.py` | Claim verification: verified / unverified high-stakes / unverified medium / contradiction / no claim |
+| `tests/test_gatekeeper.py` | Claim verification: verified by resident window / unverified high-stakes / unverified medium / contradiction / snapshot and prior label never verify / no claim / MCP detail |
 | `tests/test_memory.py` | Same-as-last-time suggestion on same category, empty on different category / no history |
 | `tests/test_door_talk.py` | Door-talk API (store/list/validation/404), phrasebook exact-match + free-text rejection |
 
@@ -667,6 +702,8 @@ variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on S
 | Event taxonomy (5 categories) | `test_triage_data.py` cases + `test_triage.py` |
 | Ring webhook + HMAC | `test_webhook.py`, `test_api.py::test_webhook_rejects_bad_signature` |
 | Ring Partner API v1.1 (parse, `request_id` idempotency, `sha256=` prefix) | `test_webhook.py`, `test_api.py::test_webhook_accepts_partner_v11_envelope` |
+| Signed Ring simulator path | `test_api.py::test_ring_simulator_signed_event_is_unverified_without_resident_context` |
+| Gatekeeper: resident context only | `test_gatekeeper.py` (window verified; snapshot/prior label/statement never verify) |
 | Alexa+ bare 401 (`MCP_401_WWW_AUTHENTICATE`) | `test_api.py::test_mcp_401_www_authenticate_toggle` |
 | Evidence gate status + demotion | `test_triage.py`, `test_adversarial.py`, `test_api.py::test_event_serialization_includes_why_and_child` |
 | Door calendar (`list`/`clear`) + share protocol | `test_mcp_server.py`, `test_db.py`, `test_api.py` |

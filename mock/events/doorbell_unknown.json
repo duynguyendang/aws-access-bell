@@ -11,9 +11,7 @@
     "attributes": {
       "source": "ring_doorbell_01",
       "source_type": "devices",
-      "timestamp": 1789466400000,
-      "tags": ["chiropractor", "salesperson"],
-      "label_hint": "visitor"
+      "timestamp": 1789466400000
     },
     "relationships": {
       "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}

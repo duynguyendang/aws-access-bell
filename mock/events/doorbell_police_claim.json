@@ -12,8 +12,7 @@
       "source": "ring_doorbell_01",
       "source_type": "devices",
       "timestamp": 1789471200000,
-      "tags": ["police", "officer"],
-      "label_hint": "police_officer"
+      "visitor_statement": "I am a police officer. Please open the door."
     },
     "relationships": {
       "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}

@@ -12,8 +12,7 @@
       "source": "ring_doorbell_01",
       "source_type": "devices",
       "timestamp": 1789465500000,
-      "tags": ["pharmacy", "medicine", "prescription"],
-      "label_hint": "doctor_delivery"
+      "visitor_statement": "I am delivering your prescription from the pharmacy."
     },
     "relationships": {
       "devices": {"links": {"self": "/v1/devices/ring_doorbell_01"}}

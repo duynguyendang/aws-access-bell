@@ -54,6 +54,7 @@ const state = {
   escalation: null,
   history: new Map(),
   mockMode: false,
+  ringScenarios: [],
 };
 
 function bootTokenFromUrl() {
@@ -133,6 +134,12 @@ function applyStatic() {
   setText("h-calendar", "door_calendar");
   setText("h-share", "share_title");
   setText("h-demo", "simulate");
+  setText("h-ring", "ring_title");
+  setText("ring-note", "ring_note");
+  setText("l-ring-scenario", "ring_scenario");
+  setText("l-ring-statement", "ring_statement");
+  setText("ring-fire", "ring_fire");
+  setText("ring-motion", "ring_motion");
   setText("l-window-label", "window_label");
   setText("l-window-start", "window_start");
   setText("l-window-end", "window_end");
@@ -166,12 +173,17 @@ function applyStatic() {
   $("child-toggle").setAttribute("aria-pressed", String(state.child));
   renderReplies();
   buildDemoBar();
+  if (state.ringScenarios.length) renderRingOptions();
 }
 
 function renderReplies() {
   const container = $("replies");
   container.innerHTML = "";
-  const actions = state.child ? CHILD_ACTIONS : ACTIONS;
+  let actions = state.child ? CHILD_ACTIONS : ACTIONS;
+  if (!state.child && Array.isArray(state.last?.triage?.suggested_replies)) {
+    const allowed = state.last.triage.suggested_replies.filter((action) => ACTIONS.includes(action));
+    if (allowed.length) actions = allowed;
+  }
   actions.forEach((action) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -197,9 +209,9 @@ function secondaryCaption(triage) {
   return triage[suffix] || "";
 }
 
-function renderAlert(eventId, triage, why, childCaption) {
+function renderAlert(eventId, triage, why, childCaption, visitorStatement) {
   state.currentEventId = eventId ?? state.currentEventId;
-  state.last = { eventId: state.currentEventId, triage, why, childCaption };
+  state.last = { eventId: state.currentEventId, triage, why, childCaption, visitorStatement };
   const caption = currentCaption(triage);
   const secondary = secondaryCaption(triage);
   $("caption").textContent = caption;
@@ -207,7 +219,8 @@ function renderAlert(eventId, triage, why, childCaption) {
   if (subEl) {
     subEl.textContent = state.bilingual ? secondary : "";
   }
-  $("why").textContent = why ? `${s("why")}: ${why[state.lang] || why.en || ""}` : "";
+  renderVisitorStatement(visitorStatement);
+  $("why").textContent = why ? why[state.lang] || why.en || "" : "";
   $("category").textContent = triage.category || "";
   $("urgency").textContent = triage.urgency != null ? fill("urgency", { value: triage.urgency }) : "";
   $("confidence").textContent =
@@ -216,10 +229,26 @@ function renderAlert(eventId, triage, why, childCaption) {
   $("context").textContent = triage.context_status === "timeout" ? s("context_timeout") : "";
   renderEvidence(triage.evidence);
   renderVerification(triage);
+  renderReplies();
   loadTalkTurns(state.currentEventId);
-  $("alert").className = `alert ${URGENCY_CLASS(triage.urgency || 0)}`;
+  $("alert").className = `alert ${
+    triage.risk_level === "high" && triage.verification_status !== "no_claim"
+      ? "u-red"
+      : URGENCY_CLASS(triage.urgency || 0)
+  }`;
   speak(caption);
   announce(caption);
+}
+
+function renderVisitorStatement(statement) {
+  const element = $("visitor-said");
+  if (statement) {
+    element.textContent = fill("visitor_said", { text: statement });
+    element.classList.remove("hidden");
+  } else {
+    element.textContent = "";
+    element.classList.add("hidden");
+  }
 }
 
 function renderVerification(triage) {
@@ -282,6 +311,7 @@ function renderRaw(msg) {
   if (subEl) {
     subEl.textContent = state.bilingual ? secondary : "";
   }
+  renderVisitorStatement(msg.visitor_statement);
   $("category").textContent = msg.category || "";
   $("urgency").textContent = "";
   $("confidence").textContent = "";
@@ -416,7 +446,13 @@ function connectStream() {
     const msg = JSON.parse(event.data);
     if (msg.type === "alert_raw") renderRaw(msg);
     if (msg.type === "alert_enriched") {
-      renderAlert(msg.event_id, msg.triage, msg.why, (msg.caption_child || {})[state.lang]);
+      renderAlert(
+        msg.event_id,
+        msg.triage,
+        msg.why,
+        (msg.caption_child || {})[state.lang],
+        msg.visitor_statement,
+      );
       upsertHistory(msg.event_id, {
         caption: (msg.triage && (msg.triage[`caption_${state.lang}`] || msg.triage.caption_en)) || "",
         tag: (msg.triage && msg.triage.category) || "",
@@ -517,6 +553,67 @@ async function loadShares() {
   });
 }
 
+function renderRingOptions() {
+  const select = $("ring-scenario");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = "";
+  state.ringScenarios.forEach((scenario) => {
+    const option = document.createElement("option");
+    option.value = scenario.key;
+    option.textContent = s(`ring_scenario_${scenario.key}`) || scenario.key;
+    select.appendChild(option);
+  });
+  if (current && state.ringScenarios.some((scenario) => scenario.key === current)) {
+    select.value = current;
+  }
+  syncRingStatement();
+}
+
+function syncRingStatement() {
+  const select = $("ring-scenario");
+  const scenario = state.ringScenarios.find((item) => item.key === select.value);
+  $("ring-statement").value = scenario ? scenario.statement || "" : "";
+}
+
+async function loadRingScenarios() {
+  const section = $("ring-sim");
+  if (!state.mockMode) {
+    section.classList.add("hidden");
+    return;
+  }
+  const response = await fetch("/api/simulate/ring/scenarios");
+  if (!response.ok) {
+    section.classList.add("hidden");
+    return;
+  }
+  const data = await response.json();
+  state.ringScenarios = data.scenarios || [];
+  if (!state.ringScenarios.length) {
+    section.classList.add("hidden");
+    return;
+  }
+  section.classList.remove("hidden");
+  renderRingOptions();
+}
+
+async function fireRing(scenario, visitorStatement) {
+  const response = await fetch("/api/simulate/ring", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario, visitor_statement: visitorStatement }),
+  });
+  const result = $("ring-result");
+  if (!response.ok) {
+    result.textContent = `${s("ring_failed")}: ${response.status}`;
+    return;
+  }
+  const data = await response.json();
+  const message = fill("ring_sent", { id: data.event_id });
+  result.textContent = message;
+  announce(message);
+}
+
 function buildDemoBar() {
   const section = $("demo");
   section.classList.toggle("hidden", !state.mockMode);
@@ -582,6 +679,11 @@ function buildDemoBar() {
 
 function wireControls() {
   $("stop-escalation").addEventListener("click", stopEscalation);
+  $("ring-scenario").addEventListener("change", syncRingStatement);
+  $("ring-fire").addEventListener("click", () =>
+    fireRing($("ring-scenario").value, $("ring-statement").value),
+  );
+  $("ring-motion").addEventListener("click", () => fireRing("motion", ""));
   $("export-log").addEventListener("click", async () => {
     const response = await fetch(`/api/door-log.txt?lang=${state.lang}`);
     if (!response.ok) {
@@ -602,7 +704,13 @@ function wireControls() {
       localStorage.setItem("accessbell_bilingual", state.bilingual ? "1" : "0");
       applyStatic();
       if (state.last) {
-        renderAlert(state.last.eventId, state.last.triage, state.last.why, state.last.childCaption);
+        renderAlert(
+          state.last.eventId,
+          state.last.triage,
+          state.last.why,
+          state.last.childCaption,
+          state.last.visitorStatement,
+        );
       }
     });
   }
@@ -615,7 +723,15 @@ function wireControls() {
     state.child = !state.child;
     localStorage.setItem("accessbell_child", state.child ? "1" : "0");
     applyStatic();
-    if (state.last) renderAlert(state.last.eventId, state.last.triage, state.last.why, state.last.childCaption);
+    if (state.last) {
+      renderAlert(
+        state.last.eventId,
+        state.last.triage,
+        state.last.why,
+        state.last.childCaption,
+        state.last.visitorStatement,
+      );
+    }
   });
   $("lang-toggle").addEventListener("click", async () => {
     const next = state.lang === "vi" ? "en" : "vi";
@@ -630,7 +746,13 @@ function wireControls() {
     await loadStrings();
     applyStatic();
     if (state.last) {
-      renderAlert(state.last.eventId, state.last.triage, state.last.why, state.last.childCaption);
+      renderAlert(
+        state.last.eventId,
+        state.last.triage,
+        state.last.why,
+        state.last.childCaption,
+        state.last.visitorStatement,
+      );
     }
     await Promise.all([loadHistory(), loadAdvise(), loadWindows(), loadShares()]);
   });
@@ -750,6 +872,7 @@ async function boot() {
   startClock();
   setStatus("status_connecting", "connecting");
   await loadMeta();
+  await loadRingScenarios();
   connectStream();
   await Promise.all([loadHistory(), loadAdvise(), loadWindows(), loadShares()]);
 }

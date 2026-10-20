@@ -3,18 +3,24 @@ import pytest
 from backend.captions import (
     BRIEF,
     CHALLENGE,
+    CHALLENGE_BY_CLAIM,
     CHILD,
+    CLAIM,
+    CLAIM_VERIFIED,
+    ESCALATION,
     GENERIC,
     LANGUAGES,
     MAX_CAPTION_LENGTH,
     MEMORY_ACTION,
     MEMORY_BASIS,
     MEMORY_CATEGORY,
+    NONE_LABEL,
     PHRASEBOOK,
     QUIET,
     STUB,
     TIER1,
     UI,
+    VERIFICATION_LABEL,
     is_short_enough,
     is_tts_safe,
     render,
@@ -25,7 +31,7 @@ from backend.triage import Category
 
 
 def _all_caption_strings():
-    for group in (GENERIC, STUB, QUIET):
+    for group in (GENERIC, STUB, QUIET, CLAIM, CLAIM_VERIFIED):
         for category, captions in group.items():
             for language, text in captions.items():
                 yield f"{category}/{language}", text
@@ -106,7 +112,15 @@ def test_ui_strings_are_complete_and_safe():
         for language in LANGUAGES:
             raw = UI[language][key]
             assert raw.strip()
-            formatted = raw.format(value=7, ms=12, seconds=90, contact="Lan", label="Leave package")
+            formatted = raw.format(
+                value=7,
+                ms=12,
+                seconds=90,
+                contact="Lan",
+                label="Leave package",
+                id=12,
+                text="I am at the door",
+            )
             assert is_tts_safe(formatted)
             assert is_short_enough(formatted)
     assert ui_strings("vi")["stop_escalation"] == UI["vi"]["stop_escalation"]
@@ -119,6 +133,11 @@ def test_challenge_and_memory_strings_are_complete_and_safe():
         assert challenge.strip()
         assert is_tts_safe(challenge)
         assert is_short_enough(challenge)
+        for claim, text in CHALLENGE_BY_CLAIM.items():
+            value = text[language]
+            assert value.strip(), claim
+            assert is_tts_safe(value), claim
+            assert is_short_enough(value), claim
         for mapping in (MEMORY_CATEGORY, MEMORY_ACTION):
             for entry in mapping.values():
                 text = entry[language]
@@ -156,8 +175,46 @@ def test_why_text_is_safe_for_every_grounding_state():
     assert "pharmacy" in expected
     calendar = why_text(grounding="grounded", evidence=["calendar:Pharmacy delivery"])
     assert "Pharmacy delivery" in calendar
+    verified = why_text(grounding="generic", verification_status="verified")
+    assert "schedule" in verified
+    verified_vi = why_text(grounding="generic", verification_status="verified", language="vi")
+    assert is_tts_safe(verified_vi) and is_short_enough(verified_vi)
+    unverified = why_text(grounding="generic", verification_status="unverified")
+    assert "no window" in unverified
+    unverified_vi = why_text(grounding="generic", verification_status="unverified", language="vi")
+    assert is_tts_safe(unverified_vi) and is_short_enough(unverified_vi)
+    contradiction = why_text(grounding="generic", verification_status="contradiction")
+    assert "conflicts" in contradiction
+    contradiction_vi = why_text(
+        grounding="generic", verification_status="contradiction", language="vi"
+    )
+    assert is_tts_safe(contradiction_vi) and is_short_enough(contradiction_vi)
 
 
 def test_render_handles_singular_and_plural():
     assert render(BRIEF["en"]["med"], 1) == "You had 1 medicine-related visit."
     assert render(BRIEF["en"]["med"], 2) == "You had 2 medicine-related visits."
+
+
+def test_escalation_message_is_bilingual_and_tts_safe():
+    for language in LANGUAGES:
+        message = ESCALATION[language].format(
+            event_id=7,
+            policy="abc123",
+            verification=VERIFICATION_LABEL["unverified"][language],
+            claim="pharmacy",
+            caption=CLAIM["pharmacy"][language],
+        )
+        assert message.strip()
+        assert is_tts_safe(message)
+        assert "pharmacy" in message
+        assert CLAIM["pharmacy"][language] in message
+    assert set(VERIFICATION_LABEL) == {"verified", "unverified", "contradiction", "no_claim"}
+    for label in VERIFICATION_LABEL.values():
+        for language in LANGUAGES:
+            assert label[language].strip()
+            assert is_tts_safe(label[language])
+            assert is_short_enough(label[language])
+    for language in LANGUAGES:
+        assert NONE_LABEL[language].strip()
+        assert is_tts_safe(NONE_LABEL[language])

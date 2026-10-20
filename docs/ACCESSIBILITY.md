@@ -1,6 +1,8 @@
 # Accessibility Statement (web UI)
 
-AccessBell targets **WCAG 2.2 AA** for its user surfaces: the Fire TV kiosk UI and the phone PWA.
+AccessBell targets **WCAG 2.2 AA** for its user surfaces: the TV-first web UI (Fire TV browser /
+PWA) and the phone PWA. Fire TV is a surface, not a packaged native app; that distinction is stated
+in the submission notes.
 
 ## What is enforced automatically
 

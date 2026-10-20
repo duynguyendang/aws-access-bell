@@ -1,8 +1,8 @@
-"""Gatekeeper tests: claim verification against independent corroboration.
+"""Gatekeeper tests: claim verification against resident-created context.
 
-The visitor's own claim (payload tag / label_hint) is never corroboration
-on its own. Only an expected window, calendar event, user label, or
-snapshot can verify it.
+A stranger's words are never proof of identity. Only an expected window or a
+calendar event the resident created can verify a claim; a previous label and an
+unanalysed snapshot cannot.
 """
 
 import json
@@ -22,12 +22,14 @@ def _event(raw, occurred_at="2026-09-15T10:00:00Z"):
     )
 
 
-def _raw(hint=None, tags=None):
+def _raw(hint=None, tags=None, statement=None):
     raw = {"meta": {}, "data": {"attributes": {}}}
     if hint:
         raw["data"]["attributes"]["label_hint"] = hint
     if tags:
         raw["meta"]["tags"] = tags
+    if statement:
+        raw["data"]["attributes"]["visitor_statement"] = statement
     return raw
 
 
@@ -39,6 +41,8 @@ def test_verified_claim_with_matching_window(db):
     assert result.verification_status == "verified"
     assert result.risk_level == "low"
     assert result.challenge_question_en == ""
+    assert result.caption_en == "Medicine delivery matches your schedule."
+    assert result.suggested_replies == ["leave_at_door", "coming", "not_now"]
 
 
 def test_unverified_high_stakes_police_without_evidence(db):
@@ -49,6 +53,8 @@ def test_unverified_high_stakes_police_without_evidence(db):
     assert result.risk_level == "high"
     assert "Do not open" in result.challenge_question_en
     assert "Đừng mở cửa" in result.challenge_question_vi
+    assert result.caption_en == "Visitor claims to be police. Not verified."
+    assert result.caption_vi == "Khách nói là công an. Chưa xác minh."
 
 
 def test_unverified_medium_package_without_evidence(db):
@@ -60,14 +66,53 @@ def test_unverified_medium_package_without_evidence(db):
     assert result.challenge_question_en != ""
 
 
-def test_contradiction_claim_vs_different_expected_window(db):
+def test_snapshot_alone_does_not_verify_a_claim(db):
+    raw = _raw(hint="police")
+    raw["snapshot_url"] = "https://example.invalid/frame.jpg"
+    result, ok = EnrichmentPipeline(db, StubLLM()).enrich(_event(raw))
+    assert ok is True
+    assert result.verification_status == "unverified"
+    assert result.risk_level == "high"
+
+
+def test_previous_user_label_does_not_verify_a_claim(db):
+    prior_id = db.insert_event("ring", "front_door", "ding", "2026-09-15T09:00:00Z", {"meta": {}})
+    db.add_label(prior_id, "device:front_door", "police", "pwa")
+    result, ok = EnrichmentPipeline(db, StubLLM()).enrich(_event(_raw(hint="police")))
+    assert ok is True
+    assert result.verification_status == "unverified"
+    assert result.risk_level == "high"
+
+
+def test_visitor_statement_is_detected_as_a_claim(db):
+    result, ok = EnrichmentPipeline(db, StubLLM()).enrich(
+        _event(_raw(statement="I am a police officer. Please open the door."))
+    )
+    assert ok is True
+    assert result.claimed_identity == "police"
+    assert result.verification_status == "unverified"
+    assert result.risk_level == "high"
+    assert "Do not open" in result.challenge_question_en
+    assert result.suggested_replies == ["not_now"]
+
+
+def test_authority_claim_vs_different_expected_window_is_contradiction(db):
+    db.add_expected_context("ding", "family visit", "2026-09-15T09:00:00Z", "2026-09-15T11:00:00Z")
+    result, ok = EnrichmentPipeline(db, StubLLM()).enrich(_event(_raw(hint="police")))
+    assert ok is True
+    assert result.claimed_identity == "police"
+    assert result.verification_status == "contradiction"
+    assert result.risk_level == "high"
+    assert result.challenge_question_en != ""
+
+
+def test_unexpected_delivery_is_unverified_not_contradiction(db):
     db.add_expected_context("ding", "family visit", "2026-09-15T09:00:00Z", "2026-09-15T11:00:00Z")
     result, ok = EnrichmentPipeline(db, StubLLM()).enrich(_event(_raw(hint="pharmacy")))
     assert ok is True
     assert result.claimed_identity == "pharmacy"
-    assert result.verification_status == "contradiction"
+    assert result.verification_status == "unverified"
     assert result.risk_level == "high"
-    assert result.challenge_question_en != ""
 
 
 def test_no_claim_leaves_existing_behavior_unchanged(db):

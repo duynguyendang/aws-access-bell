@@ -62,6 +62,20 @@ def extract_payload_hints(raw: dict) -> tuple[list[str], str]:
     return [str(tag) for tag in tags], str(hint)
 
 
+def extract_visitor_statement(raw: dict) -> str:
+    if not isinstance(raw, dict):
+        return ""
+    data = raw.get("data") if isinstance(raw.get("data"), dict) else {}
+    attributes = data.get("attributes") if isinstance(data.get("attributes"), dict) else {}
+    statement = (
+        attributes.get("visitor_statement")
+        or data.get("visitor_statement")
+        or raw.get("visitor_statement")
+        or ""
+    )
+    return str(statement).strip()
+
+
 def parse_ring_payload(data: dict) -> dict:
     if not isinstance(data, dict):
         raise WebhookError("expected a JSON object payload")
@@ -108,7 +122,7 @@ class RingWebhookHandler:
         self._db = db
         self._debounce_seconds = max(debounce_seconds, 0)
 
-    def handle(self, payload: bytes) -> tuple[dict, bool]:
+    def handle(self, payload: bytes, *, debounce: bool = True) -> tuple[dict, bool]:
         try:
             data = json.loads(payload.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
@@ -125,9 +139,10 @@ class RingWebhookHandler:
             if existing is not None:
                 return existing, True
 
-        for recent in self._db.recent_matching(device_id, kind, limit=self._debounce_seconds + 2):
-            if seconds_between(recent["occurred_at"], occurred_at) <= self._debounce_seconds:
-                return self._db.get_event(recent["id"]), True
+        if debounce:
+            for recent in self._db.recent_matching(device_id, kind, limit=self._debounce_seconds + 2):
+                if seconds_between(recent["occurred_at"], occurred_at) <= self._debounce_seconds:
+                    return self._db.get_event(recent["id"]), True
 
         event_id = self._db.insert_event("ring", device_id, kind, occurred_at, data, event_hash=event_hash)
         return self._db.get_event(event_id), False

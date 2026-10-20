@@ -103,33 +103,63 @@ class AccessBellStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        scope_service = cognito.ResourceServerScope(
+            scope_name="mcp:service",
+            scope_description="Service discovery and ping only",
+        )
         scope_tools = cognito.ResourceServerScope(
             scope_name="mcp:tools",
             scope_description="Execute AccessBell MCP tools",
         )
-        scope_user = cognito.ResourceServerScope(
-            scope_name="user:interact",
-            scope_description="Act for an authenticated user",
+        scope_resources = cognito.ResourceServerScope(
+            scope_name="mcp:resources",
+            scope_description="Read AccessBell MCP resources",
         )
         resource_server = user_pool.add_resource_server(
             "AccessBellResourceServer",
             identifier="accessbell",
-            scopes=[scope_tools, scope_user],
+            scopes=[scope_service, scope_tools, scope_resources],
         )
 
-        app_client = user_pool.add_client(
-            "AlexaMcpClient",
-            user_pool_client_name="alexa-plus-mcp",
+        callback_urls = self.node.try_get_context("alexa_callback_urls")
+        if isinstance(callback_urls, str):
+            callback_urls = [callback_urls]
+
+        service_client = user_pool.add_client(
+            "ServiceMcpClient",
+            user_pool_client_name="accessbell-service",
             generate_secret=True,
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(client_credentials=True),
                 scopes=[
-                    cognito.OAuthScope.custom("accessbell/mcp:tools"),
-                    cognito.OAuthScope.custom("accessbell/user:interact"),
+                    cognito.OAuthScope.custom("accessbell/mcp:service"),
                 ],
             ),
         )
-        app_client.node.add_dependency(resource_server)
+        service_client.node.add_dependency(resource_server)
+
+        alexa_client = None
+        if callback_urls:
+            alexa_client = user_pool.add_client(
+                "AlexaMcpClient",
+                user_pool_client_name="alexa-plus-mcp",
+                generate_secret=True,
+                o_auth=cognito.OAuthSettings(
+                    flows=cognito.OAuthFlows(
+                        authorization_code_grant=True,
+                    ),
+                    scopes=[
+                        cognito.OAuthScope.custom("accessbell/mcp:tools"),
+                        cognito.OAuthScope.custom("accessbell/mcp:resources"),
+                    ],
+                    callback_urls=callback_urls,
+                ),
+            )
+            alexa_client.node.add_dependency(resource_server)
+
+        oauth_client_ids = [service_client.user_pool_client_id]
+        if alexa_client:
+            oauth_client_ids.append(alexa_client.user_pool_client_id)
 
         cluster = ecs.Cluster(self, "AccessBellCluster", vpc=vpc)
 
@@ -208,7 +238,7 @@ class AccessBellStack(Stack):
                 "EVENTBRIDGE_BUS_NAME": event_bus.event_bus_name,
                 "OAUTH_JWKS_URL": jwks_url,
                 "OAUTH_ISSUER": issuer_url,
-                "OAUTH_CLIENT_IDS": app_client.user_pool_client_id,
+                "OAUTH_CLIENT_IDS": ",".join(oauth_client_ids),
                 "OAUTH_SCOPE_PREFIX": "accessbell/",
                 "MCP_ORIGIN": "https://alexa.amazon.com,https://developer.amazon.com",
             },
@@ -262,15 +292,12 @@ class AccessBellStack(Stack):
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
         )
 
-        listener = alb.add_listener(
-            "HttpListener",
-            port=80,
-            open=True,
-        )
-
-        target_group = listener.add_targets(
-            "EcsTarget",
+        target_group = elbv2.ApplicationTargetGroup(
+            self,
+            "AccessBellTargets",
+            vpc=vpc,
             port=8080,
+            protocol=elbv2.ApplicationProtocol.HTTP,
             targets=[fargate_service],
             health_check=elbv2.HealthCheck(
                 path="/health",
@@ -282,15 +309,54 @@ class AccessBellStack(Stack):
             deregistration_delay=Duration.seconds(30),
         )
 
+        certificate_arn = (
+            self.node.try_get_context("certificate_arn")
+            or os.getenv("CERTIFICATE_ARN")
+        )
+        if certificate_arn:
+            https_listener = alb.add_listener(
+                "HttpsListener",
+                port=443,
+                open=True,
+                certificates=[elbv2.ListenerCertificate.from_arn(certificate_arn)],
+            )
+            https_listener.add_target_groups(
+                "HttpsTargets", target_groups=[target_group]
+            )
+            alb.add_listener(
+                "HttpListener",
+                port=80,
+                open=True,
+                default_action=elbv2.ListenerAction.redirect(
+                    protocol="HTTPS",
+                    port="443",
+                    permanent=True,
+                ),
+            )
+            service_url = f"https://{alb.load_balancer_dns_name}"
+        else:
+            http_listener = alb.add_listener("HttpListener", port=80, open=True)
+            http_listener.add_target_groups(
+                "HttpTargets", target_groups=[target_group]
+            )
+            service_url = f"http://{alb.load_balancer_dns_name}"
+
         target_group.set_attribute(
             "deregistration_delay.timeout_seconds", "30"
         )
         alb.set_attribute("idle_timeout.timeout_seconds", "300")
 
         CfnOutput(self, "ALBDnsName", value=alb.load_balancer_dns_name)
-        CfnOutput(self, "ServiceUrl", value=f"http://{alb.load_balancer_dns_name}")
+        CfnOutput(self, "ServiceUrl", value=service_url)
+        CfnOutput(self, "RingWebhookUrl", value=f"{service_url}/webhooks/ring")
+        CfnOutput(self, "HttpsEnabled", value="true" if certificate_arn else "false")
         CfnOutput(self, "UserPoolId", value=user_pool.user_pool_id)
-        CfnOutput(self, "CognitoClientId", value=app_client.user_pool_client_id)
+        CfnOutput(self, "CognitoClientId", value=service_client.user_pool_client_id)
+        CfnOutput(
+            self,
+            "AlexaClientId",
+            value=alexa_client.user_pool_client_id if alexa_client else "not-configured",
+        )
         CfnOutput(self, "JwksUrl", value=jwks_url)
         CfnOutput(self, "EventBusName", value=event_bus.event_bus_name)
         CfnOutput(self, "ApiTokenSecretArn", value=api_token_secret.secret_arn)
