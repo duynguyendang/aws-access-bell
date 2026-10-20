@@ -149,6 +149,19 @@ LLM_PROVIDER=openai LLM_API_KEY_SECRET_NAME=AccessBellLlmApiKey scripts/deploy_a
 secret first. The provider-specific model defaults are `gpt-4o-mini`, `claude-3-5-haiku-latest`, and
 `gemini-2.0-flash`; override with `LLM_MODEL`.
 
+### Deploying to another AWS account
+
+`scripts/deploy_aws.sh` sources `aws.env` by default. To deploy with a different identity (an IAM
+Identity Center login, a named profile, a personal account), skip that file and point the CLI and
+CDK at the profile:
+
+```bash
+SKIP_AWS_ENV=1 AWS_PROFILE=my-profile LLM_PROVIDER=bedrock scripts/deploy_aws.sh us-east-1
+```
+
+The Bedrock preflight then probes **that** account, so the deploy only proceeds with a real model
+behind it. The stack name is the same, but each account gets its own stack and its own ALB URL.
+
 ## 4. Scaling & reliability constraints
 
 | Situation | Requirement |

@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 export PATH="${HOME}/.local/bin:${PATH}"
 
-if [ -f "${REPO_ROOT}/aws.env" ]; then
+if [ -f "${REPO_ROOT}/aws.env" ] && [ -z "${SKIP_AWS_ENV:-}" ] && [ -z "${AWS_PROFILE:-}" ]; then
   echo "Loading AWS credentials from aws.env..."
   set -a
   # shellcheck disable=SC1091
@@ -100,10 +100,16 @@ fi
 .venv/bin/pip install -q -r requirements.txt
 
 echo "Bootstrapping CDK in region ${REGION} if needed..."
-cdk bootstrap "aws://${ACCOUNT_ID}/${REGION}"
+PROFILE_ARGS=()
+if [ -n "${AWS_PROFILE:-}" ]; then
+  PROFILE_ARGS+=("--profile" "${AWS_PROFILE}")
+  echo "Using AWS profile: ${AWS_PROFILE}"
+fi
+
+cdk bootstrap "${PROFILE_ARGS[@]}" "aws://${ACCOUNT_ID}/${REGION}"
 
 echo "Deploying ${STACK_NAME}..."
-cdk deploy --require-approval never "${CDK_CONTEXT_ARGS[@]}"
+cdk deploy --require-approval never "${PROFILE_ARGS[@]}" "${CDK_CONTEXT_ARGS[@]}"
 
 echo
 echo "=== Deployment Complete ==="
