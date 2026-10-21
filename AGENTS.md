@@ -69,14 +69,14 @@ scripts/deploy_cloudrun.sh <project> [region]   # GCP Cloud Run deploy
 | New API route | `tests/test_api.py`, `docs/ARCHITECTURE.md` HTTP API table |
 | New table/column | both schema files, `docs/ARCHITECTURE.md` data model |
 | New/changed caption | `backend/captions.py` + `tests/test_captions.py` |
-| Test count changes | README, `docs/ARCHITECTURE.md` §14, `docs/internal/STORY.md`, `docs/internal/PORTABILITY_PLAN.md` §0 |
+| Test count changes | README, `docs/ARCHITECTURE.md` §14, `docs/SUBMISSION.md` (and `docs/internal/REFACTOR_PLAN.md` when it tracks the count) |
 | New doc | published → `docs/` (English) + README repo layout + Links table; internal → `docs/internal/` |
 | New deploy target | `docs/DEPLOYMENT.md` targets matrix |
 
 ## Publishing rules
 
-- `docs/internal/` holds strategy and planning notes (story, use cases, competition, portability
-  plan, business flow). It is **gitignored** and must never be linked from published docs.
+- `docs/internal/` holds strategy and planning notes (refactor plan, use cases, competition, business
+  flow). It is **gitignored** and must never be linked from published docs.
 - Public docs are `README.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, plus the
   code, schemas, prompts, web UI and tests.
 - Before publishing, confirm no secret or private note leaks into tracked files:

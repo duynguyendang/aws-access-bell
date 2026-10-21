@@ -82,7 +82,9 @@ for this account` — so the app fails open to Tier 1 + Gatekeeper captions and 
 `scripts/check_bedrock_access.py` probes the account before a deploy so the failure is reported
 instead of hidden. The instance is a **public demo**: the URL works as-is (no token), the write
 endpoints are capped at 50 requests/minute per client IP, and the Ring webhook (HMAC) plus `/mcp`
-(Cognito OAuth / `MCP_HTTP_TOKEN`) stay protected. Details and teardown:
+(Cognito OAuth / `MCP_HTTP_TOKEN`) stay protected. The video does not print the ALB URL (the instance
+may be scaled down after the demo window) — it says "Run the whole stack yourself:
+`scripts/deploy_aws.sh`", so no dead link can appear on screen. Details and teardown:
 [DEPLOYMENT.md](DEPLOYMENT.md) §3c.
 
 ## Demo video

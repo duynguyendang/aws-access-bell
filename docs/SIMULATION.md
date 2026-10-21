@@ -148,7 +148,7 @@ Subscribe to the server-sent events stream in real time:
 curl -N http://localhost:8080/api/stream
 ```
 
-Example stream output:
+Example stream output (sample data; `text_vi` / `caption_vi` are product strings from `backend/captions.py`):
 ```text
 data: {"type": "alert_raw", "event_id": 1, "text": "Someone is at the door", "text_en": "Someone is at the door", "text_vi": "Có người ở cửa", "category": "UNKNOWN_VISITOR", "latency_ms": 2.1, "visitor_statement": "I am a police officer. Please open the door."}
 

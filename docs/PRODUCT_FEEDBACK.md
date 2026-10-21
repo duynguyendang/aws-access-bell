@@ -355,6 +355,46 @@ and accessibility preferences.
 
 ---
 
+## Supporting tooling (httpx, GitHub Actions, Edge TTS, ffmpeg)
+
+**Used for:** the Ring HTTP client (`httpx`), CI (GitHub Actions), the narrated demo voice
+(Edge TTS), and the video mux (`ffmpeg` via `imageio-ffmpeg`).
+
+**What worked well**
+
+- `httpx` is a small, async-friendly HTTP client that fits the FastAPI lifespan: the Ring client
+  (`backend/ring_client.py`) uses it for `/v1/devices`, `/v1/users/me`, and `/v1/history`, with one
+  timeout and one retry policy.
+- GitHub Actions runs the whole gate in one workflow — `ruff`, `pytest` (425 tests), the
+  docs-consistency check, the ablation and evaluation scripts, a latency smoke run, pa11y on `/` and
+  `/?lang=vi`, and a Postgres run plus a Docker build/smoke test — so a bad commit fails in CI, not
+  in a judge’s browser.
+- Edge TTS gives a natural English voice with no recording setup, so the demo narration is
+  reproducible from a text file; the SRT is generated from the same text.
+- `ffmpeg` handles the final mux (screen capture + narration → H.264/AAC MP4 under 3:00).
+
+**Friction**
+
+1. **Edge TTS has no offline mode and no stable API.** The `edge-tts` CLI changed its interface
+   across versions, and the service is rate-limited: a long script can fail mid-run. We keep the
+   per-segment MP3s in the workspace and rebuild the track from them, but a submission should not
+   depend on a third-party TTS endpoint.
+2. **GitHub Actions cannot reach a Ring or AWS account from a fork** — the Ring simulator and the
+   deployed instance are the only paths a fork can exercise, so CI must stay device-free.
+3. **`httpx` timeouts are silent by default.** A hung Ring call looks like an empty history; we set
+   explicit timeouts and treat a timeout as "no context" rather than "no events".
+4. **`ffmpeg` is not on most CI images by default** (and the version matters for libx264 + AAC
+   profiles); we pin the build we use for the published cut.
+
+**Suggestions**
+
+- Publish a stable, documented TTS API with an offline fallback, or accept an uploaded narration
+  track in the submission tooling.
+- Document the exact GitHub Actions steps (Python version, `libpq`/`psycopg` extras, ffmpeg install)
+  that a fork can copy.
+
+---
+
 ## Summary
 
 The biggest API gap is not model quality or compute: it is **trusted context at the door**. Ring

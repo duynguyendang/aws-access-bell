@@ -347,6 +347,8 @@ never waits on an `ACCESS EXCLUSIVE` table lock held by the running task, DDL st
 
 ### 4.4 TriageResult schema (LLM contract)
 
+Sample data (the `caption_vi` value is a product string from `backend/captions.py`, shown here as a payload sample):
+
 ```json
 {
   "category": "PACKAGE_DELIVERY | MED_DELIVERY | FAMILY_VISITOR | UNKNOWN_VISITOR | MOTION_ANOMALY",

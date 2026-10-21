@@ -129,6 +129,7 @@ authorization-code grant on the same app client, which is why the stack creates 
 | Access | **open**: the instance runs `API_AUTH_DISABLED=true` + `PUBLIC_DEMO_MODE=true`, so the plain URL works for anyone (no token, no `?token=`). The Ring webhook (HMAC) and `/mcp` (Cognito OAuth / `MCP_HTTP_TOKEN`) stay protected. Writes are capped at 50 requests/minute per client IP |
 | HTTPS | disabled (no ACM certificate in this account). Ring requires an HTTPS callback, so a real Ring app needs `CERTIFICATE_ARN` |
 | Teardown | `cdk destroy` in `infra/`, or `aws cloudformation delete-stack --stack-name AccessBellStack` (RDS and the secrets use `RemovalPolicy.DESTROY`) |
+| Keeping it up | The instance costs roughly **$50–55/month** (Fargate 0.25 vCPU, ALB, `db.t4g.micro`, no NAT). Keep it running through the judging window if the live URL matters to the submission; otherwise destroy it and let judges run `scripts/deploy_aws.sh` themselves. **The demo video does not print the ALB URL** — the opening card says "Run the whole stack yourself: `scripts/deploy_aws.sh`" — so a stopped instance can never leave a dead link on screen |
 
 ### 3d. Running the demo with a real LLM provider
 

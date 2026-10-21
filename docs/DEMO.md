@@ -22,10 +22,10 @@ Cut timeline:
 
 | Time | On screen |
 |---|---|
-| 0:00 | **Executive summary card**: what AccessBell answers (who is at the door, should I trust the claim, who may act) + the live demo URL |
+| 0:00 | **Executive summary card**: what AccessBell answers (who is at the door, should I trust the claim, who may act) + how to run the stack yourself (`scripts/deploy_aws.sh`) |
 | 0:13 | **Architecture card**: signed Ring webhook → Tier 1 rules → Bedrock triage → Gatekeeper, three surfaces, the AWS footprint |
-| 0:30 | The app: unverified prescription delivery; Tier 1 timer, claim, evidence, why-line |
-| 0:45 | Ring simulator; second signed delivery accepted |
+| 0:30 | The app: unverified prescription delivery; Tier 1 timer, claim, evidence, why-line. **On-screen: "Recording: deterministic stub provider · deployed AWS path: Amazon Bedrock"** |
+| 0:45 | Ring simulator; second signed delivery accepted. **On-screen: "Ring Partner API v1.1 simulator — built by us; no Ring device or Ring account was available."** |
 | 1:03 | Alert card with evidence and challenge |
 | 1:24 | Police claim: `Unverified`, `Risk: high`, only `Not now` |
 | 1:50 | Resident adds `police patrol`; same claim becomes `Verified`, `Risk: low` |
@@ -46,6 +46,14 @@ runs `initialize`, `tools/list`, and `tools/call` on the same MCP server and too
 labeled **simulated**; no physical Echo/Alexa+ device appears. It uses `LLM_PROVIDER=stub` so the
 recording is deterministic and offline. No physical Ring doorbell, Fire TV, or live AWS resource
 appears.
+
+Two disclosures stay on screen for the whole app portion of the cut, so a judge watching the video
+alone cannot over-read it:
+
+| On-screen text | Where it appears |
+|---|---|
+| "Recording: deterministic stub provider · deployed AWS path: Amazon Bedrock" | top-right, from the first app shot to the end card |
+| "Ring Partner API v1.1 simulator — built by us; no Ring device or Ring account was available." | top-left, during every shot that fires a Ring simulator event |
 
 The local cut is **English-only** and **2:51** (the submission limit is 3:00). Bilingual EN+VI is documented by the caption contract, the
 [bilingual screenshot](assets/bilingual-vi.png), and the SRT, not by switching the UI to Vietnamese in
@@ -115,6 +123,8 @@ re-record with a live narrator or add terminal evidence.
 
 - The opening **executive summary** (what it answers, for whom) and the **architecture** (one signed
   event in, one grounded answer out, three surfaces, the AWS footprint).
+- Two on-screen disclosures: the simulator is ours (no Ring device or account), and the recording
+  uses the deterministic stub provider while the deployed AWS path uses Amazon Bedrock.
 - Ring v1.1 envelope fields and a **signed** webhook result (`Signed Ring v1.1 event accepted`; the API
   returns `signature_valid: true`).
 - The same handler for the simulator and `/webhooks/ring`.
@@ -128,7 +138,8 @@ re-record with a live narrator or add terminal evidence.
 
 ## Do not claim
 
-- Do not say the recording ran on a physical Fire TV or a live Ring doorbell. It is the Ring v1.1
+- Do not say the recording ran on a physical Fire TV or a live Ring doorbell. The cut says so on
+  screen as well. It is the Ring v1.1
   simulator plus the PWA/TV layout. The hardware path is documented, not recorded.
 - Do not say the visitor statement is a standard Ring webhook field. It is an AccessBell transcript
   extension used to exercise the Gatekeeper.

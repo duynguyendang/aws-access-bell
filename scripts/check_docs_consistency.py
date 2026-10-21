@@ -54,7 +54,10 @@ def check_tool_catalog() -> list[str]:
 def check_caption_rules() -> list[str]:
     problems = []
     source = _read("backend/captions.py")
-    if " ở ca" in source or "sự kiện ca" in source:
+    # The forbidden phrases are written as escapes so this checker stays ASCII-only
+    # (Vietnamese literals are only allowed in backend/captions.py).
+    forbidden = (" \u1edf ca", "s\u1ee1 ki\u1ec7n ca")
+    if any(phrase in source for phrase in forbidden):
         problems.append("backend/captions.py contains the Vietnamese 'ca' typo")
     from backend import captions
 
