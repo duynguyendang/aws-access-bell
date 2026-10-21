@@ -7,6 +7,11 @@ import sys
 from pathlib import Path
 
 
+def parse_srt_time(time_str: str) -> float:
+    hours, minutes, seconds = time_str.replace(",", ".").split(":")
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
 def parse_srt(srt_path: Path):
     content = srt_path.read_text(encoding="utf-8")
     blocks = re.split(r"\n\s*\n", content.strip())
@@ -22,33 +27,26 @@ def parse_srt(srt_path: Path):
         )
         if not time_match:
             continue
+        start_sec = parse_srt_time(time_match.group(1))
+        end_sec = parse_srt_time(time_match.group(2))
         text = " ".join(lines[2:])
-        cues.append({"id": cue_id, "time": lines[1], "text": text})
+        cues.append(
+            {
+                "id": cue_id,
+                "time": lines[1],
+                "start": start_sec,
+                "end": end_sec,
+                "duration": end_sec - start_sec,
+                "text": text,
+            }
+        )
     return cues
 
 
-def synthesize_polly(text: str, output_path: Path, voice_id: str = "Joanna"):
-    import boto3
-
-    region = os.getenv("AWS_REGION", "us-east-1")
-    client = boto3.client("polly", region_name=region)
-    resp = client.synthesize_speech(
-        Engine="neural",
-        OutputFormat="mp3",
-        Text=text,
-        VoiceId=voice_id,
-    )
-    if "AudioStream" in resp:
-        with open(output_path, "wb") as f:
-            f.write(resp["AudioStream"].read())
-        return True
-    return False
-
-
-async def synthesize_edge_tts(text: str, output_path: Path, voice: str = "en-US-AriaNeural"):
+async def synthesize_edge_tts(text: str, output_path: Path, voice: str = "en-US-AriaNeural", rate: str = "+8%"):
     import edge_tts
 
-    communicate = edge_tts.Communicate(text, voice)
+    communicate = edge_tts.Communicate(text, voice, rate=rate)
     await communicate.save(str(output_path))
     return True
 
@@ -68,15 +66,14 @@ def main():
         help="Directory to save per-cue audio files",
     )
     parser.add_argument(
-        "--engine",
-        choices=["polly", "edge-tts", "dry-run"],
-        default="dry-run",
-        help="Speech synthesis engine to use",
+        "--voice",
+        default="en-US-AriaNeural",
+        help="Edge-TTS voice identifier",
     )
     parser.add_argument(
-        "--voice",
-        default="Joanna",
-        help="Voice identifier (e.g. Joanna/Matthew for Polly, en-US-AriaNeural for edge-tts)",
+        "--rate",
+        default="+8%",
+        help="Speech rate adjustment (e.g. +8%)",
     )
     args = parser.parse_args()
 
@@ -85,39 +82,12 @@ def main():
 
     print(f"Loaded {len(cues)} cues from {args.srt}")
 
-    if args.engine == "dry-run":
-        for cue in cues:
-            cue_file = args.output_dir / f"cue_{cue['id']}.txt"
-            cue_file.write_text(f"[{cue['time']}]\n{cue['text']}\n", encoding="utf-8")
-        print(f"Dry run complete. Text scripts exported to: {args.output_dir}")
-        return
+    for cue in cues:
+        cue_audio = args.output_dir / f"cue_{cue['id']}.mp3"
+        print(f"Synthesizing cue #{cue['id']} ({cue['start']:.1f}s - {cue['end']:.1f}s)...")
+        asyncio.run(synthesize_edge_tts(cue["text"], cue_audio, voice=args.voice, rate=args.rate))
 
-    if args.engine == "polly":
-        for cue in cues:
-            cue_audio = args.output_dir / f"cue_{cue['id']}.mp3"
-            print(f"Synthesizing cue #{cue['id']} via AWS Polly...")
-            try:
-                synthesize_polly(cue["text"], cue_audio, voice_id=args.voice)
-            except Exception as e:
-                print(f"Polly error on cue #{cue['id']}: {e}", file=sys.stderr)
-                sys.exit(1)
-        print(f"All cues synthesized into: {args.output_dir}")
-
-    elif args.engine == "edge-tts":
-        try:
-            import edge_tts  # noqa: F401
-        except ImportError:
-            print(
-                "Error: edge-tts is not installed in the active environment. Run `pip install edge-tts`.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        for cue in cues:
-            cue_audio = args.output_dir / f"cue_{cue['id']}.mp3"
-            print(f"Synthesizing cue #{cue['id']} via Edge-TTS...")
-            asyncio.run(synthesize_edge_tts(cue["text"], cue_audio, voice=args.voice))
-        print(f"All cues synthesized into: {args.output_dir}")
+    print(f"All {len(cues)} cues synthesized into: {args.output_dir}")
 
 
 if __name__ == "__main__":

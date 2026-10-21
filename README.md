@@ -47,7 +47,7 @@ scripts are all part of this submission.
 
 | | |
 |---|---|
-| **3-minute video** | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> · [SRT captions](docs/accessbell-demo.srt) (2:49 narrated cut) |
+| **3-minute video** | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> · [SRT captions](docs/accessbell-demo.srt) (2:48 narrated cut) |
 | **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
 | **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1`; open demo (signed Ring simulator + Alexa+ client, 50 rpm per IP; the Ring webhook and `/mcp` stay token-protected). It may be scaled down after the demo window — the video points at `scripts/deploy_aws.sh` instead of this URL |
