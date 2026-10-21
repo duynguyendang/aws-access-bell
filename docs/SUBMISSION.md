@@ -87,7 +87,7 @@ endpoints are capped at 50 requests/minute per client IP, and the Ring webhook (
 
 ## Demo video
 
-The recording plan and exact clicks are in [DEMO.md](DEMO.md). A **2:24 narrated local cut** is
+The recording plan and exact clicks are in [DEMO.md](DEMO.md). A **2:51 narrated local cut** is
 available at [assets/accessbell-demo.mp4](assets/accessbell-demo.mp4), with English
 [captions](accessbell-demo.srt). The cut is **English-only**; bilingual EN+VI is documented by the
 [VI screenshot](assets/bilingual-vi.png) and the caption contract. The last product segment shows the
@@ -102,7 +102,8 @@ Suggested title: **AccessBell — the doorbell that checks the claim, not just t
 Suggested description (copy/paste):
 
 > AccessBell turns a Ring door event into accessible text on the screen the resident already owns.
-> This 2:24 demo uses a signed Ring Partner API v1.1 simulator, a Gatekeeper that verifies claims
+> This 2:51 demo opens with an executive summary and an architecture card, then uses a signed
+> Ring Partner API v1.1 simulator, a Gatekeeper that verifies claims
 > only against resident-created windows, EN/VI TTS-safe captions, and MCP tools for Alexa+. The last
 > segment shows an in-app Alexa+ MCP client simulator calling the real endpoint; no physical device
 > is used. The recording uses the deterministic stub provider; no physical Ring, Fire TV, or live
@@ -123,7 +124,7 @@ unlisted-but-viewable, replace the `TODO(submission)` in `README.md` with the UR
 - [x] MCP server for Alexa+ (11 tools)
 - [x] Product feedback for every API/SDK/tool used
 - [x] Friction log
-- [x] Narrated 2:24 local cut with SRT captions (`docs/assets/accessbell-demo.mp4`)
+- [x] Narrated 2:51 local cut with SRT captions (`docs/assets/accessbell-demo.mp4`)
 - [ ] Upload the <3-minute public video and replace `TODO(submission)` in `README.md`
 - [ ] Select **Ring track** and **AWS Builder mini challenge** in the Devpost form
 - [ ] Paste the repository URL and video URL into the submission form

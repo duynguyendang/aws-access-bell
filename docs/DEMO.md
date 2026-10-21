@@ -12,29 +12,34 @@ the Ring-track proof: the app builds a Partner API envelope, signs it with HMAC-
 
 | | |
 |---|---|
-| File | [assets/accessbell-demo.mp4](assets/accessbell-demo.mp4) — 2:24, 1600×900, H.264/AAC |
+| File | [assets/accessbell-demo.mp4](assets/accessbell-demo.mp4) — 2:51, 1600×900, H.264/AAC |
 | Captions | [accessbell-demo.srt](accessbell-demo.srt) — English, timed to the narration |
 | Poster | [assets/accessbell-demo-poster.jpg](assets/accessbell-demo-poster.jpg) |
 | Narration | Edge TTS `en-US-AriaNeural`, rate `+8%`; synthetic voice, not the builder's voice |
-| Captured flow | Signed prescription delivery → Tier 1/Tier 2 evidence → police claim unverified → resident `police patrol` window → same claim verified → English talk panel + fixed phrasebook → escalation consent off → Alexa+ MCP client (simulated) ask + reply → title card |
+| Captured flow | Executive summary card → architecture card → signed prescription delivery → Tier 1/Tier 2 evidence → police claim unverified → resident `police patrol` window → same claim verified → English talk panel + fixed phrasebook → escalation consent off → Alexa+ MCP client (simulated) ask + reply → title card |
 
 Cut timeline:
 
 | Time | On screen |
 |---|---|
-| 0:00 | Unverified prescription delivery; Tier 1 timer, claim, evidence, why-line |
-| 0:14 | Ring simulator; second signed delivery accepted |
-| 0:32 | Alert card with evidence and challenge |
-| 0:53 | Police claim: `Unverified`, `Risk: high`, only `Not now` |
-| 1:19 | Resident adds `police patrol`; same claim becomes `Verified`, `Risk: low` |
-| 1:42 | English talk panel; D-pad focus on replies; fixed phrasebook send |
-| 2:01 | Escalation off by default; consent unchecked |
-| 2:04 | Alexa+ MCP client (simulated): `initialize`, 11 tools, `get door alerts` |
-| 2:09 | Spoken-style answer; **Tell them I am coming** sends `send_quick_reply` |
-| 2:16 | Closing card |
+| 0:00 | **Executive summary card**: what AccessBell answers (who is at the door, should I trust the claim, who may act) + the live demo URL |
+| 0:13 | **Architecture card**: signed Ring webhook → Tier 1 rules → Bedrock triage → Gatekeeper, three surfaces, the AWS footprint |
+| 0:30 | The app: unverified prescription delivery; Tier 1 timer, claim, evidence, why-line |
+| 0:45 | Ring simulator; second signed delivery accepted |
+| 1:03 | Alert card with evidence and challenge |
+| 1:24 | Police claim: `Unverified`, `Risk: high`, only `Not now` |
+| 1:50 | Resident adds `police patrol`; same claim becomes `Verified`, `Risk: low` |
+| 2:12 | English talk panel; D-pad focus on replies; fixed phrasebook send |
+| 2:31 | Escalation off by default; consent unchecked |
+| 2:34 | Alexa+ MCP client (simulated): `initialize`, 11 tools, `get door alerts` |
+| 2:39 | Spoken-style answer; **Tell them I am coming** sends `send_quick_reply` |
+| 2:46 | Closing card |
 
-The cut follows the first six beats of the shot list and adds the **Alexa+ MCP client** panel as the
-last product beat. It does **not** include a terminal shot of `/health` or `/api/metrics`; those are
+The cut opens with two slides — the **executive summary** and the **architecture** — then follows the
+story beats of the shot list and adds the **Alexa+ MCP client** panel as the last product beat. Both
+slides live in the repo as [docs/slides/executive-summary.html](slides/executive-summary.html) and
+[docs/slides/architecture.html](slides/architecture.html), so the opening is reproducible, and their
+rendered PNGs are in [assets/](assets/). It does **not** include a terminal shot of `/health` or `/api/metrics`; those are
 reproducible with the commands in the README. The Alexa+ panel is an in-product demo client that
 runs `initialize`, `tools/list`, and `tools/call` on the same MCP server and tool set as Alexa+
 (directly on `/mcp` locally, through the mock-mode bridge `/api/demo/mcp` on a deployed demo) and is
@@ -42,7 +47,7 @@ labeled **simulated**; no physical Echo/Alexa+ device appears. It uses `LLM_PROV
 recording is deterministic and offline. No physical Ring doorbell, Fire TV, or live AWS resource
 appears.
 
-The local cut is **English-only**. Bilingual EN+VI is documented by the caption contract, the
+The local cut is **English-only** and **2:51** (the submission limit is 3:00). Bilingual EN+VI is documented by the caption contract, the
 [bilingual screenshot](assets/bilingual-vi.png), and the SRT, not by switching the UI to Vietnamese in
 the video. The Alexa+ panel is also pictured in
 [alexa-mcp-client.png](assets/alexa-mcp-client.png).
@@ -90,6 +95,8 @@ re-record with a live narrator or add terminal evidence.
 
 ## Exact clicks
 
+0. Open the two slides: [executive summary](slides/executive-summary.html) (0:00-0:13), then
+   [architecture](slides/architecture.html) (0:13-0:30).
 1. Open `/?lang=en`.
 2. In **Ring simulator**, select `med_delivery`, click **Ring doorbell**.
 3. Select `police_claim`, click **Ring doorbell**.
@@ -106,6 +113,8 @@ re-record with a live narrator or add terminal evidence.
 
 ## What the judge should see
 
+- The opening **executive summary** (what it answers, for whom) and the **architecture** (one signed
+  event in, one grounded answer out, three surfaces, the AWS footprint).
 - Ring v1.1 envelope fields and a **signed** webhook result (`Signed Ring v1.1 event accepted`; the API
   returns `signature_valid: true`).
 - The same handler for the simulator and `/webhooks/ring`.

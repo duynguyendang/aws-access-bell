@@ -37,6 +37,10 @@ year) — and adults 70+ report the highest median losses of any age group
 |---|
 | ![Alexa+ MCP client panel showing initialize, 11 tools, get door alerts, and a quick reply](docs/assets/alexa-mcp-client.png) |
 
+| Executive summary (video opening) | Architecture (video opening) |
+|---|---|
+| ![Executive summary slide: what AccessBell answers, for whom, and the live demo URL](docs/assets/executive-summary.png) | ![Architecture slide: signed Ring webhook, Tier 1 rules, Bedrock triage, Gatekeeper, three surfaces, and the AWS footprint](docs/assets/architecture.png) |
+
 **Closest incumbent.** Ring Video Descriptions already turns camera events into text (subscription,
 7 languages) and Alexa+ Greetings can handle a delivery at the door. Neither adjudicates the
 visitor's *claim*: AccessBell verifies the claim against resident-created context and refuses to
@@ -55,7 +59,7 @@ scripts are all part of this submission.
 
 | | |
 |---|---|
-| **3-minute video** | [Narrated local cut](docs/assets/accessbell-demo.mp4) (2:24) · [SRT captions](docs/accessbell-demo.srt) · public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
+| **3-minute video** | [Narrated local cut](docs/assets/accessbell-demo.mp4) (2:51) · [SRT captions](docs/accessbell-demo.srt) · public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
 | **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
 | **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1`; open demo (signed Ring simulator + Alexa+ client, 50 rpm per IP; the Ring webhook and `/mcp` stay token-protected) |
@@ -85,7 +89,7 @@ tools, `get door alerts`, `send_quick_reply`); the grounding badge (`grounded` /
 `demoted_insufficient_evidence`); the `/api/metrics` timers; and **Download door log** — a plain-text
 artifact of the day's events you can keep. The local cut is English-only; the bilingual EN+VI proof is
 the [VI screenshot](docs/assets/bilingual-vi.png) and the caption contract. A recording plan lives in
-[docs/DEMO.md](docs/DEMO.md), and a 2:24 narrated cut with SRT captions is in
+[docs/DEMO.md](docs/DEMO.md), and a 2:51 narrated cut with SRT captions is in
 `docs/assets/accessbell-demo.mp4` for review and upload. For release discipline,
 `SUBMISSION_STRICT=1 python scripts/check_docs_consistency.py` fails while the public video URL is
 still TODO.
