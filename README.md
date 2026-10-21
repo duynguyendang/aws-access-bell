@@ -29,18 +29,6 @@ $2.95B in reported losses, with government-impersonation losses alone at $789M (
 year) — and adults 70+ report the highest median losses of any age group
 ([FTC, 2024](https://www.ftc.gov/reports/consumer-sentinel-network-data-book-2024)).
 
-| Gatekeeper: unverified claim | Ring v1.1 simulator |
-|---|---|
-| ![Visitor claims to be police, marked unverified with risk high and a challenge question](docs/assets/gatekeeper-unverified.png) | ![Ring simulator panel with scenario, visitor statement, and signed webhook result](docs/assets/ring-simulator.png) |
-
-| Alexa+ MCP client (simulated) |
-|---|
-| ![Alexa+ MCP client panel showing initialize, 11 tools, get door alerts, and a quick reply](docs/assets/alexa-mcp-client.png) |
-
-| Executive summary (video opening) | Architecture (video opening) |
-|---|---|
-| ![Executive summary slide: what AccessBell answers, for whom, and the live demo URL](docs/assets/executive-summary.png) | ![Architecture slide: signed Ring webhook, Tier 1 rules, Bedrock triage, Gatekeeper, three surfaces, and the AWS footprint](docs/assets/architecture.png) |
-
 **Closest incumbent.** Ring Video Descriptions already turns camera events into text (subscription,
 7 languages) and Alexa+ Greetings can handle a delivery at the door. Neither adjudicates the
 visitor's *claim*: AccessBell verifies the claim against resident-created context and refuses to
@@ -59,7 +47,7 @@ scripts are all part of this submission.
 
 | | |
 |---|---|
-| **3-minute video** | [Narrated local cut](docs/assets/accessbell-demo.mp4) (2:51) · [SRT captions](docs/accessbell-demo.srt) · public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
+| **3-minute video** | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> · [SRT captions](docs/accessbell-demo.srt) (2:49 narrated cut) |
 | **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
 | **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1`; open demo (signed Ring simulator + Alexa+ client, 50 rpm per IP; the Ring webhook and `/mcp` stay token-protected). It may be scaled down after the demo window — the video points at `scripts/deploy_aws.sh` instead of this URL |
@@ -87,10 +75,8 @@ challenge on the police claim; the Ring simulator panel showing the signed v1.1 
 **Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+ (`initialize`, 11
 tools, `get door alerts`, `send_quick_reply`); the grounding badge (`grounded` / `generic` /
 `demoted_insufficient_evidence`); the `/api/metrics` timers; and **Download door log** — a plain-text
-artifact of the day's events you can keep. The local cut is English-only; the bilingual EN+VI proof is
-the [VI screenshot](docs/assets/bilingual-vi.png) and the caption contract. A recording plan lives in
-[docs/DEMO.md](docs/DEMO.md), and a 2:51 narrated cut with SRT captions is in
-`docs/assets/accessbell-demo.mp4` for review and upload. For release discipline,
+artifact of the day's events you can keep. The narrated cut is English-only; the bilingual EN+VI proof is
+the caption contract and UI strings. English narration captions are in [docs/accessbell-demo.srt](docs/accessbell-demo.srt). For release discipline,
 `SUBMISSION_STRICT=1 python scripts/check_docs_consistency.py` fails while the public video URL is
 still TODO.
 
@@ -138,8 +124,9 @@ representing a door transcript; real Ring v1.1 webhooks do not carry tags, label
 transcript. This is stated plainly so the demo never pretends a field exists in the Ring API.
 
 Surfaces: **Fire TV / PWA web UI** (SSE live captions, urgency as text + color, D-pad navigation,
-EN/VI, child mode, 44 px targets, signed Ring simulator) and **Alexa+ via MCP** (Streamable HTTP,
-JSON-RPC 2.0, spec 2025-11-25+) with **11 tools**:
+EN/VI, child mode, 44 px targets, signed Ring simulator) and **Alexa+ via self-hosted MCP server**
+(`POST /mcp`, Streamable HTTP, JSON-RPC 2.0, spec 2025-11-25+). MCP is the open standard that powers
+Alexa+ integrations — giving Alexa+ ambient voice access to **11 door intelligence tools**:
 
 | Tool | Purpose | | Tool | Purpose |
 |---|---|---|---|---|
@@ -150,7 +137,7 @@ JSON-RPC 2.0, spec 2025-11-25+) with **11 tools**:
 | `add_expected_context` | Door intent (“pharmacy ~10”) | | `list_expected_context` | Read the door calendar |
 | `clear_expected_context` | Revoke a window by id / label | | | |
 
-## AWS services
+## AWS services (Documented integrations)
 
 The AWS deployment path runs AccessBell with **Bedrock as the triage model**, the EventBridge bus,
 Cognito OAuth and generated Secrets Manager values. The `stub` provider is the offline test mode
@@ -241,9 +228,8 @@ aws-access-bell/
 ├── mock/events/        # 7 fixture stories (Ring Partner API v1.1 envelopes)
 ├── prompts/triage.txt  # LLM prompt: TriageResult contract + guardrails
 ├── scripts/            # demo_story.py, eval_triage.py, measure_latency.py, verify_mcp.py, ablation_evidence.py, deploy_*
-├── docs/               # ARCHITECTURE, DEPLOYMENT, SIMULATION, ACCESSIBILITY, DEMO, SUBMISSION, AWS, PRODUCT_FEEDBACK, FRICTION_LOG
-│   ├── accessbell-demo.srt # English captions for the narrated demo cut
-│   └── assets/         # screenshots, demo MP4, poster used by README/submission notes
+├── docs/               # ARCHITECTURE, DEPLOYMENT, SIMULATION, ACCESSIBILITY, SUBMISSION, AWS, PRODUCT_FEEDBACK, FRICTION_LOG
+│   └── accessbell-demo.srt # English captions for the narrated demo cut
 └── tests/              # pytest: sqlite + postgres, triage, captions/a11y, MCP, API, escalation, ...
 ```
 
@@ -324,8 +310,7 @@ MIT — see [LICENSE](LICENSE).
 | Deployment & portability | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Simulation guide (L0→L3) | [docs/SIMULATION.md](docs/SIMULATION.md) |
 | Accessibility statement | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) |
-| Demo storyboard (3-min video) | [docs/DEMO.md](docs/DEMO.md) |
-| Demo video (local narrated cut) | [docs/assets/accessbell-demo.mp4](docs/assets/accessbell-demo.mp4) · [SRT captions](docs/accessbell-demo.srt) |
+| Demo video | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> · [SRT captions](docs/accessbell-demo.srt) |
 | Submission notes (track, window, checklist) | [docs/SUBMISSION.md](docs/SUBMISSION.md) |
 | Product feedback (every API/SDK used) | [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) |
 | Friction log (hackathon bonus) | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |

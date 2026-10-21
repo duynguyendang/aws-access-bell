@@ -232,7 +232,7 @@ The challenge/caption text is fixed product copy in `backend/captions.py`, never
 | `llm/stub.py` | Deterministic offline provider (no deps) |
 | `llm/langchain_provider.py` | All live LLMs via one LangChain `ChatModel` + `with_structured_output(TriageResult)` |
 | `brief.py` | Aggregate day → personal digest (EN/VI) |
-| `escalation.py` | `EscalationManager`: timeout tasks, acknowledge/cancel, audit rows |
+| `escalation.py` | `EscalationManager`: durable pending rows, timeout tasks, resume-on-boot, acknowledge/cancel/audit |
 | `mcp_server.py` | MCP tools over Streamable HTTP (JSON-RPC 2.0) |
 | `calendar_mcp.py` | Optional Calendar MCP **client** (J2): `list_events` → `calendar:` evidence, budget-bounded |
 | `metrics.py` | In-memory latency histograms + counters for `/api/metrics` (disposable) |
@@ -244,14 +244,13 @@ The challenge/caption text is fixed product copy in `backend/captions.py`, never
 | `schema.sqlite.sql` / `schema.postgres.sql` | DDL per dialect |
 | `oauth.py` | OAuth 2.1 resource-server verification (JWKS, scopes, `Cf-Access-Jwt-Assertion`) |
 | `ring_simulator.py` | Ring Partner API v1.1 demo envelopes + HMAC signing for the in-app simulator |
-| `escalation.py` | `EscalationManager`: durable pending rows + resume-on-boot + acknowledge/audit |
 | `util.py` | `RateLimiter`, ISO-8601 helpers |
 
 ### 4.2 HTTP API (implemented)
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/health` | GET | liveness + mode |
+| `/health` | GET | Liveness, mock mode, `llm_provider`, resolved `llm_model` |
 | `/` | GET | Fire TV / PWA UI |
 | `/api/stream` | GET | SSE live alerts (`alert_raw`, `alert_enriched`) |
 | `/webhooks/ring` | POST | Ring events (HMAC, rate-limited, debounced) |
@@ -274,7 +273,6 @@ The challenge/caption text is fixed product copy in `backend/captions.py`, never
 | `/api/share/{id}/revoke` | POST | Revoke a share (append-only audit row) |
 | `/api/policy` | GET | Active `policy.yaml` version + SHA |
 | `/api/metrics` | GET | Fixture-derived counters: status, grounding, escalation, latency timers |
-| `/health` | GET | Liveness: mock mode, `llm_provider`, resolved `llm_model` |
 | `/api/ui-strings` | GET | UI labels + fixed-prompt door-talk phrasebook EN/VI (single source in `captions.py`) |
 | `/api/advise` | GET | Read-only suggestions (never auto-writes) |
 | `/api/escalation/stop` | POST | Acknowledge + stop a pending escalation from the UI |
@@ -634,7 +632,7 @@ This keeps the **demo path deterministic** while live Ring remains a documented 
 - MCP HTTP: **OAuth 2.1 (JWKS-verified JWT) two-tier** when `OAUTH_ISSUER` is set; service tokens
   cannot act for users; local `MCP_HTTP_TOKEN` fallback only for offline demo; `MCP_ORIGIN`
   allowlist; `/api/simulate` and `/api/simulate/ring` can require `DEMO_TOKEN`.
-- Per-IP rate limiting (default 30 req/min) on webhook + simulate endpoints; limiter prunes keys.  
+- Per-IP rate limiting (default 50 req/min) on webhook + simulate endpoints; limiter prunes keys.  
 - `/api/*` requires `API_TOKEN` when `API_AUTH_DISABLED=false` (public deploys); `/`, `/assets` and
   `/health` stay public and the UI bootstraps its cookie from `/?token=…`.  
 - No face embeddings store.  

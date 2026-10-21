@@ -8,7 +8,7 @@ without a paid deployment.
 
 | Service | Role in AccessBell | Where |
 |---|---|---|
-| **Amazon Bedrock** | Tier-2 grounded triage through LangChain `ChatBedrockConverse`; default model `us.amazon.nova-2-lite-v1:0` | `backend/llm/factory.py`, `docs/ARCHITECTURE.md` §9 |
+| **Amazon Bedrock** | Tier-2 grounded triage through LangChain `ChatBedrockConverse`; default model `us.amazon.nova-2-lite-v1:0` | `backend/llm/__init__.py`, `docs/ARCHITECTURE.md` §9 |
 | **AWS CDK (Python)** | Infrastructure as code for the whole stack | `infra/accessbell_stack.py`, `infra/app.py` |
 | **Amazon ECS Fargate** | Runs the FastAPI container; 0.25 vCPU / 0.5 GB, desired count 1 | `infra/accessbell_stack.py` |
 | **Application Load Balancer** | Public entry point; 300 s idle timeout for SSE; optional HTTPS listener | `infra/accessbell_stack.py` |
@@ -31,8 +31,10 @@ without a paid deployment.
 - The local demo uses `LLM_PROVIDER=stub` for deterministic screenshots and tests. The AWS CDK stack
   sets `LLM_PROVIDER=bedrock` by default.
 
-**Not claimed:** this submission was not deployed to a live AWS account, and no public AWS URL is
-presented as working. The CDK path is source-verified and synth-tested, not production-run.
+**Live demo instance:** a live demo stack was deployed to AWS `us-east-1` (ECS Fargate + ALB + RDS
+Postgres + Cognito + EventBridge) and is documented in [docs/DEPLOYMENT.md](DEPLOYMENT.md) §3c and
+[docs/SUBMISSION.md](SUBMISSION.md). Production claims stay narrow: HTTP-only demo ALB (no ACM
+certificate), single task, and Bedrock Converse fails open due to account foundation-model gates.
 
 ## 3. Deploy
 
@@ -128,4 +130,4 @@ database and user pool; do not use that setting for resident data without changi
 | Deployable path | `scripts/deploy_aws.sh`, Dockerfile, Postgres schema, health check |
 | Security | private RDS, generated secrets, HMAC, OAuth scopes, production assertions |
 | Cost awareness | scale-to-zero is safe for escalation; one Fargate task; destroy path documented |
-| Honest scope | local stub for the demo; no live AWS URL claimed |
+| Honest scope | live demo instance deployed; local stub for recording/tests; account Bedrock gate disclosed |

@@ -38,20 +38,31 @@ The runtime path is Ring Partner API **webhook v1.1**:
 transcript extension, not a standard Ring field. Real Ring v1.1 webhooks do not include tags, label
 hints, or a transcript. We say this explicitly in the README and demo.
 
-## Why this is an AWS Builder project
+## Why this empowers Alexa+ (Self-hosted MCP Server)
 
-- **Amazon Bedrock** is the product triage path (`LLM_PROVIDER=bedrock`, Nova Lite by default)
-  through LangChain `ChatBedrockConverse` and a structured `TriageResult`.
-- **AWS CDK** deploys ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge + Secrets Manager
-  (`infra/`, `scripts/deploy_aws.sh`).
-- **Amazon EventBridge** publishes triaged events to a custom bus when `EVENTBRIDGE_BUS_NAME` is set.
-- **Amazon Cognito** provides the OAuth 2.1 resource-server path for `/mcp`.
-- **Amazon SNS / SES** are supported escalation/announce transports.
-- **Amazon ECS Fargate + RDS Postgres** keep the service and data in the customer's own account.
+AccessBell directly embodies how brands in Preview are building and shipping experiences on Alexa+ that customers love:
 
-The deployment path is implemented and unit-tested at the adapter boundaries. This submission was
-validated locally with the deterministic `stub` provider; no paid AWS deployment was left running.
-See [AWS.md](AWS.md) for exactly what was and was not run.
+- **Self-Hosted MCP Server**: Built on the open standard that powers Alexa+ integrations — Streamable HTTP transport, JSON-RPC 2.0, adhering to MCP spec **2025-11-25 or later** (`POST /mcp`).
+- **11 Purpose-Built Tools**: Full suite of door intelligence tools (`get_door_alerts`, `get_event_detail`, `get_context_snapshot`, `confirm_event`, `send_quick_reply`, `add_expected_context`, `list_expected_context`, `clear_expected_context`, `update_accessibility_prefs`, `set_escalation`, `get_daily_summary`).
+- **Two-Tier OAuth 2.1 Authentication**: Amazon Cognito resource-server verification (JWKS, PKCE S256) supporting machine discovery (`mcp:service`) and user-consented execution (`mcp:tools`).
+- **Ambient Voice & Agent Actions**: Mai can ask *"Alexa, who is at the front door?"* or *"Alexa, tell them I am coming"* from anywhere in the home; Alexa+ calls AccessBell MCP tools to inspect the Gatekeeper claim and dispatch the quick reply.
+
+## Why this is an AWS Builder project (Documented Integrations)
+
+AccessBell features deep, documented integrations with core AWS services:
+
+- **Amazon Bedrock**: Tier-2 grounded triage through LangChain `ChatBedrockConverse` and a structured `TriageResult` pydantic contract (default model `us.amazon.nova-2-lite-v1:0`). Detailed in `docs/ARCHITECTURE.md` §9 and `docs/AWS.md`.
+- **Amazon EventBridge**: Outbound event bus (`backend/aws_events.py`) publishing triaged door events to custom buses for household automation.
+- **Amazon Cognito**: OAuth 2.1 resource server for `/mcp` (`backend/oauth.py`) with two app clients (`accessbell-service` and `alexa-plus-mcp`).
+- **Amazon ECS Fargate + Application Load Balancer**: Fully automated infrastructure as code (`infra/accessbell_stack.py`) with 300 s ALB idle timeout for SSE streaming.
+- **Amazon RDS for PostgreSQL**: PostgreSQL 16 durable persistence with rolling-deploy lock safety (`backend/storage/postgres.py`).
+- **AWS Secrets Manager**: Automated generation and injection of API tokens, MCP tokens, and webhook secrets.
+- **Amazon SNS / SES**: Pluggable transports for consent-based escalation.
+
+The deployment path is implemented and unit-tested at the adapter boundaries. A live demo instance
+is deployed to ECS Fargate + RDS Postgres via CDK (see below); local evaluation and the video
+recording run with the deterministic `stub` provider. See [AWS.md](AWS.md) for exactly what was
+and was not run.
 
 ## How the judging criteria are addressed
 
@@ -89,10 +100,9 @@ may be scaled down after the demo window) — it says "Run the whole stack yours
 
 ## Demo video
 
-The recording plan and exact clicks are in [DEMO.md](DEMO.md). A **2:51 narrated local cut** is
-available at [assets/accessbell-demo.mp4](assets/accessbell-demo.mp4), with English
-[captions](accessbell-demo.srt). The cut is **English-only**; bilingual EN+VI is documented by the
-[VI screenshot](assets/bilingual-vi.png) and the caption contract. The last product segment shows the
+A **2:49 narrated local cut** is prepared for upload, with English [captions](accessbell-demo.srt).
+The cut is **English-only**; bilingual EN+VI is documented by the caption contract and UI strings.
+The last product segment shows the
 in-product **Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+:
 `initialize`, 11 tools, `get_door_alerts`, and `send_quick_reply`. It uses the signed Ring v1.1
 simulator, the stub triage provider, and no physical Ring, Fire TV, Alexa+ device, or live AWS
@@ -104,7 +114,7 @@ Suggested title: **AccessBell — the doorbell that checks the claim, not just t
 Suggested description (copy/paste):
 
 > AccessBell turns a Ring door event into accessible text on the screen the resident already owns.
-> This 2:51 demo opens with an executive summary and an architecture card, then uses a signed
+> This 2:49 demo opens with an executive summary and an architecture card, then uses a signed
 > Ring Partner API v1.1 simulator, a Gatekeeper that verifies claims
 > only against resident-created windows, EN/VI TTS-safe captions, and MCP tools for Alexa+. The last
 > segment shows an in-app Alexa+ MCP client simulator calling the real endpoint; no physical device
@@ -120,13 +130,13 @@ unlisted-but-viewable, replace the `TODO(submission)` in `README.md` with the UR
 ## Submission checklist
 
 - [x] Public GitHub repository with MIT license
-- [x] README with setup, architecture, evidence, and screenshots
+- [x] README with setup, architecture, and evidence
 - [x] Ring runtime path + signed simulator
 - [x] AWS Builder path (Bedrock, CDK, EventBridge, Cognito, SNS/SES)
 - [x] MCP server for Alexa+ (11 tools)
 - [x] Product feedback for every API/SDK/tool used
 - [x] Friction log
-- [x] Narrated 2:51 local cut with SRT captions (`docs/assets/accessbell-demo.mp4`)
+- [x] Narrated 2:49 local cut with SRT captions (`docs/accessbell-demo.srt`)
 - [ ] Upload the <3-minute public video and replace `TODO(submission)` in `README.md`
 - [ ] Select **Ring track** and **AWS Builder mini challenge** in the Devpost form
 - [ ] Paste the repository URL and video URL into the submission form
@@ -138,7 +148,7 @@ unlisted-but-viewable, replace the `TODO(submission)` in `README.md` with the UR
 - Fire TV is a **surface**, not the submitted track. The UI is TV-first and D-pad navigable, but it
   is a web app, not a packaged Fire TV app.
 - The `visitor_statement` transcript is a demo extension, not a Ring webhook field.
-- The AWS deployment was not left running for cost/account reasons; the CDK path and adapter tests
-  are in the repository.
+- The AWS demo deployment may be scaled down after the judging window for cost reasons; the CDK path,
+  live ALB URL, and adapter tests are documented in the repository.
 - The bilingual UI was reviewed with automated tests and VI copy review, not a certified human
   translator or a full screen-reader audit. See [ACCESSIBILITY.md](ACCESSIBILITY.md).

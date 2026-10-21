@@ -8,16 +8,16 @@ It answers who is at the door, and whether
 to trust it.
 
 2
-00:00:13,130 --> 00:00:29,730
+00:00:13,130 --> 00:00:29,250
 A signed Ring webhook feeds fast rules,
-then Bedrock validates the output. The
-Gatekeeper checks claims against windows
-the resident created. Results reach a TV-
-first PWA, eleven MCP tools for Alexa, and
-an audited escalation path.
+then Bedrock grounds the triage. Our self-
+hosted MCP server connects Alexa Plus
+using Streamable HTTP with eleven tools,
+powering voice actions alongside Fire TV
+captions and audited escalation.
 
 3
-00:00:30,330 --> 00:00:44,150
+00:00:29,850 --> 00:00:43,670
 Meet Mai. She is seventy-two, lives alone,
 and is hard of hearing. For her, the
 doorbell was a black box. AccessBell turns
@@ -25,7 +25,7 @@ a Ring door event into accessible text on
 the screen she already owns.
 
 4
-00:00:44,750 --> 00:01:01,980
+00:00:44,270 --> 00:01:01,500
 This is not a mock JSON file. We choose a
 prescription delivery. AccessBell builds a
 Ring Partner API version one point one
@@ -35,7 +35,7 @@ through the same handler as a live Ring
 webhook.
 
 5
-00:01:02,580 --> 00:01:22,810
+00:01:02,100 --> 00:01:22,330
 Tier one answers in milliseconds. Tier
 two, grounded in the resident's own
 schedule, refines the caption and shows
@@ -46,7 +46,7 @@ shows the claim, the evidence, and the
 challenge instead of inventing certainty.
 
 6
-00:01:23,410 --> 00:01:48,080
+00:01:22,930 --> 00:01:47,600
 Now the attack. The visitor says, I am a
 police officer, open the door. AccessBell
 does not verify that claim from the
@@ -58,7 +58,7 @@ tells her not to open the door. Only the
 not-now action is offered.
 
 7
-00:01:48,680 --> 00:02:10,800
+00:01:48,200 --> 00:02:10,320
 Now the resident creates a police patrol
 window in her own door calendar. Same
 claim, same signed Ring event. This time
@@ -69,7 +69,7 @@ schedule. The gate is what she scheduled,
 not what the stranger said.
 
 8
-00:02:11,400 --> 00:02:30,140
+00:02:10,920 --> 00:02:29,660
 Every caption is English and Vietnamese,
 short, and T T S safe. Urgency always
 carries a text label, never color alone.
@@ -79,11 +79,10 @@ interpreter is a fixed-prompt phrasebook,
 never a fake free-text translation.
 
 9
-00:02:30,740 --> 00:02:49,840
-Escalation is off by default, revocable,
-durable, and audited. The same door tools
-are exposed over M C P for Alexa Plus, and
-the deployment path uses Bedrock, E C S
-Fargate, R D S, Cognito, and EventBridge.
-Ring in, accessible text out, with the
-resident in control.
+00:02:30,260 --> 00:02:48,260
+AccessBell hosts an MCP server on the open
+standard powering Alexa Plus integrations.
+Alexa queries alerts, verifies claims, and
+dispatches replies. Our AWS stack runs
+Bedrock, EventBridge, Cognito, and RDS.
+Ring in, accessible text out.

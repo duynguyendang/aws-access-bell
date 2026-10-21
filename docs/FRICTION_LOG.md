@@ -50,7 +50,7 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
 - **Workaround:** the simulator builds a real v1.1 envelope, signs it with HMAC-SHA256, verifies
   `X-Signature`, and calls the same `RingWebhookHandler` as `/webhooks/ring`. The UI shows
   `signature_valid: true` and the resulting event.
-- **Evidence:** `backend/ring_simulator.py`, `POST /api/simulate/ring`, `docs/DEMO.md`.
+- **Evidence:** `backend/ring_simulator.py`, `POST /api/simulate/ring`, `docs/SIMULATION.md`.
 - **What would help:** a public webhook sandbox that can emit and replay signed events.
 
 ## 4. The Gatekeeper was verifying claims from the wrong evidence
@@ -172,7 +172,7 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
 - **Workaround:** submit to the Ring track; describe Fire TV as a surface, not a packaged app. The
   accessibility statement lists what is automated (pa11y, contrast, labels) and what is not
   (human screen-reader audit, physical device).
-- **Evidence:** `docs/ACCESSIBILITY.md`, `docs/SUBMISSION.md`, `docs/DEMO.md`.
+- **Evidence:** `docs/ACCESSIBILITY.md`, `docs/SUBMISSION.md`, `docs/SIMULATION.md`.
 - **What would help:** a hosted Fire TV/Vega simulator and a Ring device loaner program.
 
 ## 13. Playwright browser cache mismatch
@@ -185,7 +185,7 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
 - **Impact:** ~20 minutes.
 - **Workaround:** launch with the cached `chromium-1234` executable path in the local screenshot
   script. CI installs the matching browser.
-- **Evidence:** screenshot workflow in `docs/DEMO.md`; no runtime dependency.
+- **Evidence:** screenshot workflow; no runtime dependency.
 - **What would help:** clearer version pinning in Playwright’s launch error (it does name the
   expected path, which is how we fixed it).
 
@@ -226,7 +226,7 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
   it and stops with this exact error unless the deploy is explicitly forced), and the tier-2
   failure is logged with its cause instead of only marking the event `enrichment_failed`. Deploying
   with `LLM_PROVIDER=stub` remains one flag away for a deterministic demo.
-- **Evidence:** `docs/DEPLOYMENT.md` §3c, `backend/llm.py`.
+- **Evidence:** `docs/DEPLOYMENT.md` §3c, `backend/llm/__init__.py`.
 - **What would help:** a documented, scriptable way to check and request foundation-model access,
   and a clearer runtime error that says "this account has no model access" instead of an opaque
   `Error 002`.
@@ -271,8 +271,8 @@ Severity: **S1** blocks the demo, **S2** costs hours / changes architecture, **S
 - No live Ring device or Ring sandbox account: the v1.1 path is simulator-verified, not
   device-verified.
 - The live AWS instance is a **demo deployment**, not a production service: HTTP only (no ACM
-  certificate), one Fargate task, and the deterministic `stub` triage provider because this account
-  has no Bedrock model access. See [DEPLOYMENT.md](DEPLOYMENT.md) §3c.
+  certificate), one Fargate task, and runs `LLM_PROVIDER=bedrock` failing open cleanly to Tier 1 +
+  Gatekeeper because this account has no Bedrock model access. See [DEPLOYMENT.md](DEPLOYMENT.md) §3c.
 - No human screen-reader audit on a physical TV: automated accessibility checks pass, but that is
   not the same thing, and we do not claim it is.
 - Alexa+ was exercised through the MCP protocol against the live MCP endpoint and an in-app client

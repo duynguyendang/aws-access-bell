@@ -170,7 +170,7 @@ curl -s http://localhost:8080/mcp \
 curl -s http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer test-token" \
-  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "get_door_status", "arguments": {}}}'
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "get_door_alerts", "arguments": {}}}'
 ```
 
 ---
@@ -205,7 +205,7 @@ Note the CloudFormation outputs:
    - Utterance: *"Alexa, who is at the front door?"*
    - Utterance: *"Alexa, tell them to leave the package at the door."*
    - Utterance: *"Alexa, summarize door visits today."*
-3. The Alexa+ Agent routes utterances to `get_latest_door_event`, `send_quick_reply`, and `summarize_door_day`.
+3. The Alexa+ Agent routes utterances to `get_door_alerts`, `send_quick_reply`, and `get_daily_summary`.
 
 ### Step 4.3: Fire TV Web App Simulator
 
