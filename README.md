@@ -47,7 +47,7 @@ scripts are all part of this submission.
 
 | | |
 |---|---|
-| **3-minute video** | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> · [SRT captions](docs/accessbell-demo.srt) (2:48 narrated cut) |
+| **3-minute video** | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
 | **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
 | **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1`; open demo (signed Ring simulator + Alexa+ client, 50 rpm per IP; the Ring webhook and `/mcp` stay token-protected). It may be scaled down after the demo window — the video points at `scripts/deploy_aws.sh` instead of this URL |
@@ -57,7 +57,7 @@ scripts are all part of this submission.
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                        # **425 tests** (388 pass + 37 Postgres-skipped)
+python -m pytest -q                        # **427 tests** (390 pass + 37 Postgres-skipped)
 python scripts/eval_triage.py              # 46 labeled scenarios: category + Gatekeeper + memory + demotion/escalation
 python scripts/ablation_evidence.py        # grounding gate ablation (3 arms)
 python scripts/measure_latency.py          # local Tier-1 / enrichment latency (stub)
@@ -72,11 +72,13 @@ curl -s -X POST "http://127.0.0.1:8080/api/simulate/ring" \
 
 What to look at: the alert caption and its **Evidence / Why** line; the Gatekeeper headline and
 challenge on the police claim; the Ring simulator panel showing the signed v1.1 webhook result; the
-**Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+ (`initialize`, 11
-tools, `get door alerts`, `send_quick_reply`); the grounding badge (`grounded` / `generic` /
-`demoted_insufficient_evidence`); the `/api/metrics` timers; and **Download door log** — a plain-text
-artifact of the day's events you can keep. The narrated cut is English-only; the bilingual EN+VI proof is
-the caption contract and UI strings. English narration captions are in [docs/accessbell-demo.srt](docs/accessbell-demo.srt). For release discipline,
+bilingual EN+VI caption line; the 10-foot PWA mode (one screen, large type, arrow-key focus, caption
+read aloud); the **Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+
+(`initialize`, 11 tools, `get door alerts`, `send_quick_reply`); the grounding badge (`grounded` /
+`generic` / `demoted_insufficient_evidence`); the `/api/metrics` timers; and **Download door log** — a
+plain-text artifact of the day's events you can keep. The narrated cut is English-only; the bilingual
+EN+VI proof is the caption contract and UI strings. English narration captions are in
+[docs/accessbell-demo.srt](docs/accessbell-demo.srt). For release discipline,
 `SUBMISSION_STRICT=1 python scripts/check_docs_consistency.py` fails while the public video URL is
 still TODO.
 
@@ -310,7 +312,7 @@ MIT — see [LICENSE](LICENSE).
 | Deployment & portability | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Simulation guide (L0→L3) | [docs/SIMULATION.md](docs/SIMULATION.md) |
 | Accessibility statement | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) |
-| Demo video | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> · [SRT captions](docs/accessbell-demo.srt) |
+| Demo video | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
 | Submission notes (track, window, checklist) | [docs/SUBMISSION.md](docs/SUBMISSION.md) |
 | Product feedback (every API/SDK used) | [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) |
 | Friction log (hackathon bonus) | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |

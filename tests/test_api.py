@@ -515,3 +515,26 @@ def test_demo_mcp_bridge_disabled_when_not_mock_mode(client, monkeypatch):
     resp = client.post("/api/demo/mcp", json={"jsonrpc": "2.0", "id": 5, "method": "tools/list"})
     assert resp.status_code == 404
     monkeypatch.setattr(settings, "mock_mode", True)
+
+
+def test_tier1_timer_measures_the_rules_only(client):
+    resp = client.post("/api/simulate/ring", json={"scenario": "med_delivery"})
+    assert resp.status_code == 200
+    wait_for_enriched(client, resp.json()["event_id"])
+    timers = client.get("/api/metrics").json()["timers"]
+    assert "tier1_ms" in timers
+    assert "ingest_to_caption_ms" in timers
+    assert timers["tier1_ms"]["count"] >= 1
+    assert timers["tier1_ms"]["p95"] < 50.0
+
+
+def test_advise_suggests_a_window_after_repeated_unverified_claims(client):
+    for _ in range(2):
+        resp = client.post("/api/simulate/ring", json={"scenario": "police_claim"})
+        assert resp.status_code == 200
+        wait_for_enriched(client, resp.json()["event_id"])
+    advice = client.get("/api/advise").json()
+    reasons = [item["reason"] for item in advice["suggestions"]]
+    assert any("unverified visitor claims" in reason for reason in reasons)
+    assert advice["auto_write"] is False
+    assert all(item["auto_write"] is False for item in advice["suggestions"])

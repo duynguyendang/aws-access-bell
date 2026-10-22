@@ -15,6 +15,8 @@ in the submission notes.
 
 ## Design guarantees in the UI
 
+- **10-foot mode** (`?tv=1`): one screen, caption scaled up, no header chrome, arrow-key focus
+  only — the same PWA a Fire TV would load.
 - **Reply targets** (quick replies, toggles, forms) have a minimum height of 44 px.
 - **Focus is visible**: 4 px focus outline on buttons, inputs, selects and links.
 - **D-pad navigation**: arrow keys move focus across all visible buttons and inputs. Arrow keys never

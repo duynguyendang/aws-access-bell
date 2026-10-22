@@ -257,6 +257,27 @@ input, select {
 .history .h-tag { color: var(--muted); font-size: 1.05rem; text-align: right; }
 
 .demo.hidden { display: none; }
+
+/* TV / kiosk presentation (?tv=1): the 10-foot caption surface a Fire TV would
+   load. Same PWA, same events, one screen, large type, D-pad only. */
+body.tv-mode { padding: 2vh 3vw; max-width: 1600px; }
+body.tv-mode .topbar,
+body.tv-mode #api-auth-note,
+body.tv-mode main > section:not(#alert),
+body.tv-mode #demo { display: none; }
+body.tv-mode main { display: flex; justify-content: center; align-items: center; min-height: 96vh; }
+body.tv-mode #alert { width: 100%; max-width: 1500px; padding: 24px 34px; }
+body.tv-mode .caption { font-size: clamp(2.2rem, 5vw, 3.7rem); }
+body.tv-mode .caption-sub { font-size: clamp(1.4rem, 2.8vw, 2.1rem); }
+body.tv-mode .why { font-size: 1.25rem; margin-bottom: 8px; }
+body.tv-mode .badge { font-size: 1.1rem; padding: 4px 14px; }
+body.tv-mode .meta,
+body.tv-mode .evidence { margin-bottom: 10px; gap: 8px; }
+body.tv-mode .replies { gap: 14px; }
+body.tv-mode .replies button { font-size: 1.4rem; min-height: 60px; padding: 10px 22px; }
+body.tv-mode .evidence span { font-size: 1.05rem; padding: 4px 12px; }
+.tv-note { display: none; }
+body.tv-mode .tv-note { display: block; color: var(--blue); font-size: 1.2rem; }
 .alexa-utterance { font-size: 1.35rem; color: var(--text); margin: 10px 0 12px; }
 .alexa-transcript { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .alexa-transcript li {

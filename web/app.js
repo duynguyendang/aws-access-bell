@@ -101,6 +101,13 @@ function replyLabel(action) {
 
 async function loadMeta() {
   bootTokenFromUrl();
+  if (new URLSearchParams(window.location.search).get("tv") === "1") {
+    document.body.classList.add("tv-mode");
+  }
+  const tvNote = $("tv-note");
+  if (tvNote) {
+    tvNote.textContent = state.voice ? `${s("tv_mode_note")} · ${s("voice_on")}` : s("tv_mode_note");
+  }
   const health = await (await fetch("/health")).json();
   state.mockMode = Boolean(health.mock_mode);
   const prefsResponse = await fetch("/api/prefs");
@@ -357,6 +364,15 @@ function renderEvidence(evidence) {
   });
 }
 
+function historyClass(values) {
+  const verification = values.verification || "";
+  if (verification === "verified") return "u-green";
+  if (verification === "unverified" || verification === "contradiction") {
+    return values.risk === "high" ? "u-red" : "u-amber";
+  }
+  return URGENCY_CLASS(values.urgency || 0);
+}
+
 function upsertHistory(eventId, values) {
   let item = state.history.get(eventId);
   if (!item) {
@@ -376,7 +392,7 @@ function upsertHistory(eventId, values) {
   }
   item.querySelector(".h-caption").textContent = values.caption || "";
   item.querySelector(".h-tag").textContent = values.tag || "";
-  item.className = URGENCY_CLASS(values.urgency || 0);
+  item.className = historyClass(values);
   while ($("history").children.length > 8) {
     const last = $("history").lastChild;
     state.history.delete(Number(last.dataset.eventId));
@@ -479,6 +495,8 @@ function connectStream() {
         caption: (msg.triage && (msg.triage[`caption_${state.lang}`] || msg.triage.caption_en)) || "",
         tag: (msg.triage && msg.triage.category) || "",
         urgency: (msg.triage && msg.triage.urgency) || 0,
+        verification: (msg.triage && msg.triage.verification_status) || "",
+        risk: (msg.triage && msg.triage.risk_level) || "",
       });
     }
     if (msg.type === "escalation_armed") startEscalation(msg);
@@ -489,19 +507,36 @@ function connectStream() {
 
 async function loadHistory() {
   const data = await (await fetch("/api/events?limit=8")).json();
-  (data.events || []).forEach((event) => {
+  const events = data.events || [];
+  events.forEach((event) => {
     upsertHistory(event.id, {
       caption: (event.triage && (event.triage[`caption_${state.lang}`] || event.triage.caption_en)) || "",
       tag: (event.triage && event.triage.category) || "",
       urgency: (event.triage && event.triage.urgency) || 0,
+      verification: (event.triage && event.triage.verification_status) || "",
+      risk: (event.triage && event.triage.risk_level) || "",
     });
   });
+  // A TV surface shows the latest alert until a new one arrives, so restore it
+  // on load instead of leaving the caption screen empty.
+  const latest = events.find((event) => event.triage && event.triage.caption_en);
+  if (latest && !state.last) {
+    renderAlert(
+      latest.id,
+      latest.triage,
+      latest.why,
+      (latest.caption_child || {})[state.lang],
+      latest.visitor_statement,
+      latest.status,
+    );
+  }
 }
 
 async function loadAdvise() {
   const data = await (await fetch("/api/advise")).json();
   const list = $("advise");
   list.innerHTML = "";
+  const panel = $("advise-panel");
   (data.suggestions || []).forEach((suggestion) => {
     const item = document.createElement("li");
     const text = document.createElement("span");
@@ -517,6 +552,7 @@ async function loadAdvise() {
     item.appendChild(button);
     list.appendChild(item);
   });
+  if (panel) panel.classList.toggle("hidden", list.children.length === 0);
 }
 
 async function loadWindows() {

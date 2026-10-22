@@ -230,6 +230,7 @@ The challenge/caption text is fixed product copy in `backend/captions.py`, never
 | `llm/__init__.py` | `build_llm(settings)` provider factory |
 | `llm/base.py` | `TriageLLM` protocol |
 | `llm/stub.py` | Deterministic offline provider (no deps) |
+| `api/demo/mcp` | Mock-mode bridge to the same MCP server, so the in-app Alexa+ client works on a deploy where the browser holds no MCP token |
 | `llm/langchain_provider.py` | All live LLMs via one LangChain `ChatModel` + `with_structured_output(TriageResult)` |
 | `brief.py` | Aggregate day → personal digest (EN/VI) |
 | `escalation.py` | `EscalationManager`: durable pending rows, timeout tasks, resume-on-boot, acknowledge/cancel/audit |
@@ -272,7 +273,7 @@ The challenge/caption text is fixed product copy in `backend/captions.py`, never
 | `/api/share/log` | GET | Share read-back (audit) |
 | `/api/share/{id}/revoke` | POST | Revoke a share (append-only audit row) |
 | `/api/policy` | GET | Active `policy.yaml` version + SHA |
-| `/api/metrics` | GET | Fixture-derived counters: status, grounding, escalation, latency timers |
+| `/api/metrics` | GET | Fixture-derived counters: status, grounding, escalation, latency timers (`tier1_ms` = the rules path only, `ingest_to_caption_ms` = signed webhook accepted → caption emitted) |
 | `/api/ui-strings` | GET | UI labels + fixed-prompt door-talk phrasebook EN/VI (single source in `captions.py`) |
 | `/api/advise` | GET | Read-only suggestions (never auto-writes) |
 | `/api/escalation/stop` | POST | Acknowledge + stop a pending escalation from the UI |
@@ -522,6 +523,10 @@ MCP**, not on AccessBell — Alexa+ orchestrates both.
 
 ### Fire TV web (primary visual)
 
+- `?tv=1` opens the 10-foot presentation of the same PWA: one screen, the caption fills it, the
+  header and developer panels are hidden, type scales up, and the arrow keys move the focus ring
+  between the reply actions. A TV loads the same URL; nothing is packaged for Fire TV.
+
 - Static/SPA served by FastAPI (`web/`, installable PWA: manifest + icon)  
 - SSE `/api/stream` for live alerts; `alert_raw` carries `latency_ms` for an on-screen badge  
 - Large typography, WCAG-oriented contrast, `prefers-reduced-motion`, clock outside the live region  
@@ -677,7 +682,7 @@ Optional AWS Builder mini: Bedrock + Lambda webhook.
 
 ## 14. Tests (pytest) — requirements traceability
 
-Run: `pip install -r requirements-dev.txt && pytest -q` (425 tests collected; skips are Postgres
+Run: `pip install -r requirements-dev.txt && pytest -q` (427 tests collected; skips are Postgres
 variants without `TEST_POSTGRES_DSN` and live-LLM extras. Storage tests run on SQLite and, when
 `TEST_POSTGRES_DSN` is set, on Postgres too)
 

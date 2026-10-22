@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>AccessBell — what actually ran</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #141a22;
+    --text: #f4f7fa;
+    --muted: #b7c5d3;
+    --line: #2a3441;
+    --green: #3ddc84;
+    --amber: #f5b13d;
+    --red: #ff5c5c;
+    --blue: #6aa9ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 900px; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+  body { padding: 50px 66px 42px; display: flex; flex-direction: column; }
+  .eyebrow { font-size: 20px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
+  h1 { margin-top: 12px; font-size: 42px; letter-spacing: -1px; }
+  .cols { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .col { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .col.yes { border-color: var(--green); }
+  .col.no { border-color: var(--amber); }
+  .col h2 { font-size: 25px; display: flex; align-items: center; gap: 12px; }
+  .col.yes h2 { color: var(--green); }
+  .col.no h2 { color: var(--amber); }
+  .col ul { margin-top: 16px; display: grid; gap: 11px; list-style: none; }
+  .col li { font-size: 19.5px; color: var(--muted); line-height: 1.35; padding-left: 20px; position: relative; }
+  .col li::before { content: "·"; position: absolute; left: 4px; color: var(--text); }
+  .col li b { color: var(--text); font-weight: 650; }
+  .bar { margin-top: 24px; border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; display: flex; gap: 18px; align-items: center; }
+  .bar .tag { font-size: 17px; letter-spacing: 1.1px; text-transform: uppercase; color: var(--blue); white-space: nowrap; }
+  .bar .text { font-size: 19.5px; color: var(--muted); }
+  .bar .text b { color: var(--text); }
+  footer { margin-top: auto; display: flex; justify-content: space-between; color: var(--muted); font-size: 19px; }
+  footer .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+</style>
+</head>
+<body>
+  <div class="eyebrow">Honesty layer</div>
+  <h1>What actually ran — and what did not</h1>
+
+  <div class="cols">
+    <div class="col yes">
+      <h2>Real in this recording</h2>
+      <ul>
+        <li><b>Signed Ring Partner API v1.1 envelope</b> with HMAC-SHA256, through the same handler as <span class="mono">/webhooks/ring</span></li>
+        <li><b>Our MCP server</b>: <span class="mono">initialize</span> → 11 tools → <span class="mono">get_door_alerts</span> → <span class="mono">send_quick_reply</span>, spec 2025-11-25</li>
+        <li><b>The Gatekeeper</b>: claims verified only against windows the resident created</li>
+        <li><b>The AWS stack</b>: ECS Fargate + ALB + RDS Postgres + Cognito OAuth 2.1 + EventBridge, deployed from this repo</li>
+      </ul>
+    </div>
+    <div class="col no">
+      <h2>Not shown — and not claimed</h2>
+      <ul>
+        <li><b>No Ring device and no Ring account</b>: the simulator is ours, built on the documented v1.1 envelope</li>
+        <li><b>No physical Fire TV</b>: a TV loads the same PWA in its 10-foot mode</li>
+        <li><b>No Alexa+ device</b>: the panel is a local MCP client, not an Echo</li>
+        <li><b>No camera video stored, no face embeddings</b> — ever</li>
+        <li><b>The recording used the deterministic stub triage provider</b>; the deployed path is Amazon Bedrock</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="tag">Read next</div>
+    <div class="text">Product feedback for every API and SDK we touched: <b class="mono">docs/PRODUCT_FEEDBACK.md</b> — and the friction we hit, with workarounds: <b class="mono">docs/FRICTION_LOG.md</b></div>
+  </div>
+
+  <footer>
+    <div>Reproduce every claim: <span class="mono">scripts/verify_mcp.py</span> · <span class="mono">scripts/eval_triage.py</span> · <span class="mono">scripts/measure_latency.py</span></div>
+    <div>github.com/duynguyendang/aws-access-bell</div>
+  </footer>
+</body>
+</html>

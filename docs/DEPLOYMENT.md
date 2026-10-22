@@ -122,6 +122,7 @@ authorization-code grant on the same app client, which is why the stack creates 
 |---|---|
 | URL | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com |
 | Region / stack | `us-east-1` · `AccessBellStack` (CDK, `scripts/deploy_aws.sh us-east-1`) |
+| Demo surfaces | the PWA (`/`), the 10-foot TV presentation (`/?tv=1`), the in-app Alexa+ MCP client panel, and the signed Ring simulator |
 | What is real | ECS Fargate task (public subnet, ALB target group), RDS Postgres 16 (`db.t4g.micro`), Cognito user pool + OAuth 2.1 resource server, EventBridge bus, Secrets Manager tokens, CloudWatch logs, the signed Ring v1.1 simulator, the MCP server, and the Gatekeeper |
 | Demo mode | `MOCK_MODE=true` so the in-app Ring simulator and the Alexa+ client panel are visible. The task runs **`LLM_PROVIDER=bedrock`** (the real `ChatBedrockConverse` path), but **this account is not allowed to use foundation models**: every Converse call returns `Error 002: Access to Bedrock models is not allowed for this account`. The app fails open exactly as designed — Tier 1 + Gatekeeper captions, the challenge line, and the unverified/verified decision still work — and the UI says *"Tier 2 model unavailable — showing the tier 1 caption"* instead of pretending the model answered. A Bedrock-capable account needs no code change |
 | Limits | `RATE_LIMIT_PER_MINUTE=50` (per client IP) on the write and demo endpoints; `API_AUTH_DISABLED=true` + `PUBLIC_DEMO_MODE=true` for open demo access |

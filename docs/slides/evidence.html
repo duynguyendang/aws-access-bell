@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>AccessBell — evidence</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #141a22;
+    --text: #f4f7fa;
+    --muted: #b7c5d3;
+    --line: #2a3441;
+    --green: #3ddc84;
+    --amber: #f5b13d;
+    --blue: #6aa9ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 900px; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+  body { padding: 54px 66px 44px; display: flex; flex-direction: column; }
+  .eyebrow { font-size: 20px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
+  h1 { margin-top: 12px; font-size: 44px; letter-spacing: -1px; }
+  .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .card .k { font-size: 17px; letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted); }
+  .card .v { font-size: 40px; font-weight: 750; margin-top: 10px; letter-spacing: -1px; }
+  .card .v span { font-size: 22px; color: var(--muted); font-weight: 500; }
+  .card p { margin-top: 8px; font-size: 18px; color: var(--muted); line-height: 1.35; }
+  .card.green { border-color: var(--green); }
+  .card.blue { border-color: var(--blue); }
+  .card.amber { border-color: var(--amber); }
+  .bars { margin-top: 26px; display: grid; gap: 12px; }
+  .bar { display: grid; grid-template-columns: 300px 1fr 120px; align-items: center; gap: 16px; }
+  .bar .label { font-size: 20px; color: var(--muted); }
+  .bar .track { height: 22px; background: rgba(255,255,255,.06); border-radius: 999px; overflow: hidden; }
+  .bar .fill { height: 100%; background: var(--blue); border-radius: 999px; }
+  .bar .fill.green { background: var(--green); }
+  .bar .value { font-size: 22px; font-weight: 700; text-align: right; }
+  footer { margin-top: auto; display: flex; justify-content: space-between; color: var(--muted); font-size: 19px; }
+  footer .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+</style>
+</head>
+<body>
+  <div class="eyebrow">Measured, not asserted</div>
+  <h1>Every number here comes from a script in this repository</h1>
+
+  <div class="grid">
+    <div class="card green">
+      <div class="k">Tier 1 rules</div>
+      <div class="v">0.1 <span>ms p95</span></div>
+      <p>No model in the path. 200 simulated events, `scripts/measure_latency.py`.</p>
+    </div>
+    <div class="card blue">
+      <div class="k">Webhook to caption on the wire</div>
+      <div class="v">14.5 <span>ms p95</span></div>
+      <p>Signed Ring event accepted, tier-1 caption delivered over SSE.</p>
+    </div>
+    <div class="card">
+      <div class="k">Labeled triage eval</div>
+      <div class="v">46 / 46</div>
+      <p>Category, Gatekeeper and memory accuracy 1.0 — <b>zero false verifications</b>.</p>
+    </div>
+    <div class="card amber">
+      <div class="k">Grounding demotions</div>
+      <div class="v">3</div>
+      <p>Claims without evidence demoted to generic captions — enforced in code, not in the prompt.</p>
+    </div>
+    <div class="card">
+      <div class="k">Escalation arming</div>
+      <div class="v">16 / 16</div>
+      <p>Expected escalations armed, 0 false and 0 missed (`scripts/eval_triage.py`).</p>
+    </div>
+    <div class="card">
+      <div class="k">Bedrock cost per event</div>
+      <div class="v">&lt; $0.001</div>
+      <p>Nova Lite tier-2 triage, one call per door event, far below the latency budget.</p>
+    </div>
+  </div>
+
+  <div class="bars">
+    <div class="bar">
+      <div class="label">Grounding ablation: event only</div>
+      <div class="track"><div class="fill" style="width:50%"></div></div>
+      <div class="value">0.5</div>
+    </div>
+    <div class="bar">
+      <div class="label">+ payload hints (visitor statement)</div>
+      <div class="track"><div class="fill green" style="width:100%"></div></div>
+      <div class="value">1.0</div>
+    </div>
+    <div class="bar">
+      <div class="label">+ resident-created window</div>
+      <div class="track"><div class="fill green" style="width:100%"></div></div>
+      <div class="value">1.0</div>
+    </div>
+  </div>
+
+  <footer>
+    <div>Reproduce: <span class="mono">scripts/eval_triage.py</span> · <span class="mono">scripts/measure_latency.py</span> · <span class="mono">scripts/ablation_evidence.py</span></div>
+    <div>11 MCP tools · spec 2025-11-25 · Streamable HTTP</div>
+  </footer>
+</body>
+</html>

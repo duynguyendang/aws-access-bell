@@ -387,8 +387,10 @@ async def _announce(event: dict, started: float | None = None):
     raw_payload = json.loads(event.get("raw_json") or "{}") if isinstance(event.get("raw_json"), str) else (event.get("raw_json") or {})
     client_event_id = raw_payload.get("event_id") or ""
     visitor_statement = extract_visitor_statement(raw_payload)
+    rules_started = time.perf_counter()
     raw = tier1.classify(event["kind"])
-    latency_ms = round((time.perf_counter() - started) * 1000.0, 2)
+    tier1_ms = round((time.perf_counter() - rules_started) * 1000.0, 3)
+    ingest_ms = round((time.perf_counter() - started) * 1000.0, 2)
     broker.publish(
         {
             "type": "alert_raw",
@@ -403,11 +405,13 @@ async def _announce(event: dict, started: float | None = None):
             "urgency": 0,
             "message": raw.caption_en,
             "color": "white",
-            "latency_ms": latency_ms,
+            "latency_ms": tier1_ms,
+            "ingest_ms": ingest_ms,
             "visitor_statement": visitor_statement,
         }
     )
-    metrics.observe("tier1_ms", latency_ms)
+    metrics.observe("tier1_ms", tier1_ms)
+    metrics.observe("ingest_to_caption_ms", ingest_ms)
     asyncio.create_task(_enrich_async(event["id"]))
 
 
@@ -904,6 +908,7 @@ async def advise(limit: int = 200):
     demoted_total = 0
     urgent_unanswered = 0
     groups: dict[tuple, int] = {}
+    claim_groups: dict[tuple, int] = {}
     for event in events:
         try:
             triage = json.loads(event.get("triage_json") or "{}")
@@ -915,6 +920,14 @@ async def advise(limit: int = 200):
             if hour:
                 key = (event.get("device_id") or "unknown", hour)
                 groups[key] = groups.get(key, 0) + 1
+        if (
+            triage.get("verification_status") == "unverified"
+            and triage.get("claimed_identity")
+        ):
+            hour = (event.get("occurred_at") or "")[11:13]
+            if hour:
+                key = (event.get("device_id") or "unknown", hour)
+                claim_groups[key] = claim_groups.get(key, 0) + 1
         if (triage.get("urgency") or 0) >= 7 and not db.labels_for_event(event["id"]):
             urgent_unanswered += 1
     suggestions = []
@@ -925,6 +938,18 @@ async def advise(limit: int = 200):
                     "kind": "expected_window",
                     "device_id": device_id,
                     "reason": f"{count} generic alerts around {hour}:00",
+                    "auto_write": False,
+                }
+            )
+        if len(suggestions) >= 5:
+            break
+    for (device_id, hour), count in sorted(claim_groups.items(), key=lambda item: -item[1]):
+        if count >= 2:
+            suggestions.append(
+                {
+                    "kind": "expected_window",
+                    "device_id": device_id,
+                    "reason": f"{count} unverified visitor claims around {hour}:00",
                     "auto_write": False,
                 }
             )

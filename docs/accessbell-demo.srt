@@ -1,88 +1,98 @@
 1
-00:00:00,200 --> 00:00:12,530
+00:00:00,200 --> 00:00:09,180
 AccessBell turns a Ring doorbell event
 into accessible text on the screens a
 household already owns, and it checks the
 visitor's claim instead of repeating it.
-It answers who is at the door, and whether
-to trust it.
 
 2
-00:00:13,130 --> 00:00:29,250
+00:00:09,530 --> 00:00:25,750
 A signed Ring webhook feeds fast rules,
 then Bedrock grounds the triage. Our self-
-hosted MCP server connects Alexa Plus
+hosted M C P server connects Alexa Plus
 using Streamable HTTP with eleven tools,
 powering voice actions alongside Fire TV
 captions and audited escalation.
 
 3
-00:00:29,850 --> 00:00:43,670
-Meet Mai. She is seventy-two, lives alone,
-and is hard of hearing. For her, the
-doorbell was a black box. AccessBell turns
-a Ring door event into accessible text on
-the screen she already owns.
+00:00:26,100 --> 00:00:38,220
+A medicine delivery arrives as a grounded
+caption with its evidence. Grounded means
+the caption has proof. A claim without
+proof is demoted to a generic caption in
+code, not in the prompt.
 
 4
-00:00:44,270 --> 00:01:01,500
-This is not a mock JSON file. We choose a
-prescription delivery. AccessBell builds a
-Ring Partner API version one point one
-event, signs it with H M A C SHA two fifty
-six, verifies the signature, and sends it
-through the same handler as a live Ring
-webhook.
+00:00:38,570 --> 00:00:50,590
+Now the attack. The visitor says, I am a
+police officer, open the door. The same
+claim, fired twice, and AccessBell never
+verifies a claim from the visitor's own
+words.
 
 5
-00:01:02,100 --> 00:01:22,330
-Tier one answers in milliseconds. Tier
-two, grounded in the resident's own
-schedule, refines the caption and shows
-its evidence. The visitor claims a
-pharmacy delivery. It is plausible, but
-the claim is not verified yet. AccessBell
-shows the claim, the evidence, and the
-challenge instead of inventing certainty.
+00:00:50,940 --> 00:00:58,790
+The resident creates a police patrol
+window in her own door calendar. That
+window is the only thing that can verify a
+claim.
 
 6
-00:01:22,930 --> 00:01:47,600
-Now the attack. The visitor says, I am a
-police officer, open the door. AccessBell
-does not verify that claim from the
-visitor's words. The headline says,
-Visitor claims to be police. Not verified.
-Risk is high. The challenge asks for a
-badge number and a callback number, and
-tells her not to open the door. Only the
-not-now action is offered.
+00:00:59,140 --> 00:01:09,720
+The same claim now matches her schedule,
+so the gate opens. Verified means the
+claim matches a schedule you created. It
+never means we identified the person.
 
 7
-00:01:48,200 --> 00:02:10,320
-Now the resident creates a police patrol
-window in her own door calendar. Same
-claim, same signed Ring event. This time
-the Gatekeeper finds resident-created
-context that matches. Verified. Low risk.
-And the caption says the visit matches her
-schedule. The gate is what she scheduled,
-not what the stranger said.
+00:01:10,070 --> 00:01:17,820
+Every caption ships in English and
+Vietnamese, short and T T S safe, so a
+screen reader and a voice line read the
+same thing.
 
 8
-00:02:10,920 --> 00:02:29,660
-Every caption is English and Vietnamese,
-short, and T T S safe. Urgency always
-carries a text label, never color alone.
-Reply targets are large, and D-pad
-navigation reaches every action. The
-interpreter is a fixed-prompt phrasebook,
-never a fake free-text translation.
+00:01:18,170 --> 00:01:26,860
+The same PWA runs as a ten-foot caption
+surface: one screen, large type, arrow key
+navigation, and the caption read aloud.
 
 9
-00:02:30,260 --> 00:02:48,260
-AccessBell hosts an MCP server on the open
-standard powering Alexa Plus integrations.
-Alexa queries alerts, verifies claims, and
-dispatches replies. Our AWS stack runs
-Bedrock, EventBridge, Cognito, and RDS.
-Ring in, accessible text out.
+00:01:27,210 --> 00:01:36,950
+She can answer the visitor through the
+door, and the share brief stays locked
+until she ticks consent. Escalation is off
+by default, revocable, and audited.
+
+10
+00:01:37,300 --> 00:01:46,180
+Alexa reaches the same door tools over M C
+P: initialize, eleven tools, the latest
+alerts, and a quick reply, all in one
+trace.
+
+11
+00:01:46,530 --> 00:02:03,070
+Everything here is measured, not asserted.
+Tier one rules: point one milliseconds at
+p ninety five. Forty six labeled cases,
+zero false verifications. Grounding
+ablation: zero point five without context,
+one point zero with it.
+
+12
+00:02:03,420 --> 00:02:15,250
+And here is what did not run: no Ring
+device, no Fire TV, no Alexa device, and
+the triage model was our deterministic
+stub. The feedback and friction logs are
+in the repository.
+
+13
+00:02:15,600 --> 00:02:31,060
+AccessBell hosts an M C P server on the
+open standard powering Alexa Plus
+integrations, on an AWS stack of Bedrock,
+EventBridge, Cognito, and R D S. Ring in,
+accessible text out. Run the whole stack
+with one command.
