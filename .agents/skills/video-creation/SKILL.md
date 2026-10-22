@@ -14,7 +14,7 @@ Automated workflow for creating, scripting, narrating, and verifying demo and su
 
 1. **Scripting & Timing**: Translate project architecture and use cases into tightly timed SRT subtitle tracks (under 3 minutes for hackathons).
 2. **Narration Synthesis**: Generate TTS voiceovers using AWS Polly (`boto3`) or Edge-TTS from SRT subtitle scripts.
-3. **Visual & Slide Direction**: Structure visual transitions across slide decks (`docs/slides/`), live UI simulators, and MCP tool interactions.
+3. **Visual & Slide Direction**: Structure visual transitions across slide decks (`docs/internal/assets/slides/`), live UI simulators, and MCP tool interactions.
 4. **Validation & Compliance**: Ensure output video meets hackathon limits (duration ≤ 3:00, 1080p, AAC/MP3 audio, clear audio balance).
 5. **Asset Cleanliness**: Maintain repository discipline by isolating heavy binary media into `docs/internal/assets/`.
 
@@ -38,7 +38,7 @@ Automated workflow for creating, scripting, narrating, and verifying demo and su
 - If running offline or with edge-tts, use `--engine edge-tts`.
 
 ### Step 3: Screen & Slide Recording
-- Open high-resolution slides (`docs/slides/executive-summary.html`, `docs/slides/architecture.html`) in a clean 1920x1080 viewport.
+- Open high-resolution slides (`docs/internal/assets/slides/executive-summary.html`, `docs/internal/assets/slides/architecture.html`) in a clean 1920x1080 viewport.
 - Run live services for interactive captures:
   - Ring webhook simulator: `python scripts/simulate_event.py delivery`
   - Alexa+ MCP tool inspector: `.venv/bin/python -m backend.mcp_server`

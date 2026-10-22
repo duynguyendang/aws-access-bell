@@ -83,9 +83,9 @@ def main():
         narration = cue["text"].replace("|", "\\|")
         scene_hint = "Live UI / Architecture"
         if cue["start"] < 25:
-            scene_hint = "Slide: `docs/slides/executive-summary.html`"
+            scene_hint = "Slide: `docs/internal/assets/slides/executive-summary.html`"
         elif cue["start"] < 50:
-            scene_hint = "Slide: `docs/slides/architecture.html` (Alexa+ MCP focus)"
+            scene_hint = "Slide: `docs/internal/assets/slides/architecture.html` (Alexa+ MCP focus)"
         elif cue["start"] < 75:
             scene_hint = "Browser UI: Webhook simulation & TV caption"
         elif cue["start"] < 105:
