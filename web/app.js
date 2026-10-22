@@ -104,10 +104,6 @@ async function loadMeta() {
   if (new URLSearchParams(window.location.search).get("tv") === "1") {
     document.body.classList.add("tv-mode");
   }
-  const tvNote = $("tv-note");
-  if (tvNote) {
-    tvNote.textContent = state.voice ? `${s("tv_mode_note")} · ${s("voice_on")}` : s("tv_mode_note");
-  }
   const health = await (await fetch("/health")).json();
   state.mockMode = Boolean(health.mock_mode);
   const prefsResponse = await fetch("/api/prefs");
@@ -189,6 +185,10 @@ function applyStatic() {
     bToggle.setAttribute("aria-pressed", String(state.bilingual));
   }
   $("voice-toggle").textContent = state.voice ? s("voice_on") : s("voice_off");
+  const tvNote = $("tv-note");
+  if (tvNote) {
+    tvNote.textContent = state.voice ? `${s("tv_mode_note")} · ${s("voice_on")}` : s("tv_mode_note");
+  }
   $("voice-toggle").setAttribute("aria-pressed", String(state.voice));
   $("child-toggle").textContent = state.child ? s("child_mode_on") : s("child_mode_off");
   $("child-toggle").setAttribute("aria-pressed", String(state.child));
