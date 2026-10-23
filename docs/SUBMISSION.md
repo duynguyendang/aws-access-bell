@@ -100,16 +100,21 @@ may be scaled down after the demo window) — it says "Run the whole stack yours
 
 ## Demo video
 
-A **2:31 narrated local cut** is prepared for upload, with English [captions](accessbell-demo.srt).
+A **2:47 narrated local cut** is prepared for upload, with English [captions](accessbell-demo.srt).
 The cut is **English-only**; bilingual EN+VI is documented by the caption contract and UI strings.
-The cut opens with an executive summary and an architecture card, shows the signed Ring simulator,
-the Gatekeeper A/B (same claim, unverified until the resident creates a matching window), the
-bilingual EN + VI caption, the 10-foot TV presentation with the caption read aloud, the consent-gated
-share, the in-app **Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+:
-`initialize`, 11 tools, `get_door_alerts`, and `send_quick_reply`, then closes on an evidence slide
-(measured latency, 46/46 eval, grounding ablation) and an honesty slide (what actually ran, what did
-not). It uses the signed Ring v1.1 simulator, the stub triage provider, and no physical Ring, Fire
-TV, or Alexa+ device. The public video URL is the remaining submission task; the README carries a
+It opens on an executive summary and an architecture card, then runs the flow end to end: a signed
+Ring medicine delivery that arrives as a *grounded* caption with its evidence, the "I am a police
+officer" claim that stays *Unverified* until the resident creates a matching patrol window in her own
+door calendar, the bilingual EN + VI caption, the 10-foot TV presentation with the caption read
+aloud, the talk panel (fixed prompts translate to Vietnamese, free text is refused rather than
+mistranslated, the share brief stays locked behind consent), the escalation countdown that she stops
+with one button — the stop written to the audit log before anything is sent — and the in-app
+**Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+: `initialize`, 11
+tools, `get_door_alerts`, and `send_quick_reply`. It closes on an evidence slide (measured latency,
+46/46 eval, grounding ablation), an honesty slide (what actually ran, what did not), and an end card
+with the one-command run. Every hard cut sits inside the silence gap between narration cues. It uses
+the signed Ring v1.1 simulator, the stub triage provider, and no physical Ring, Fire TV, or Alexa+
+device. The public video URL is the remaining submission task; the README carries a
 `TODO(submission)` placeholder until it is uploaded.
 
 Suggested title: **AccessBell — the doorbell that checks the claim, not just the camera**.
@@ -117,9 +122,10 @@ Suggested title: **AccessBell — the doorbell that checks the claim, not just t
 Suggested description (copy/paste):
 
 > AccessBell turns a Ring door event into accessible text on the screen the resident already owns.
-> This 2:31 demo opens with an executive summary and an architecture card, then uses a signed
+> This 2:47 demo opens with an executive summary and an architecture card, then uses a signed
 > Ring Partner API v1.1 simulator, a Gatekeeper that verifies claims
-> only against resident-created windows, EN/VI TTS-safe captions, and MCP tools for Alexa+. The last
+> only against resident-created windows, EN/VI TTS-safe captions, an escalation countdown the
+> resident cancels with one button, and MCP tools for Alexa+. The last
 > segment shows an in-app Alexa+ MCP client simulator calling the real endpoint; no physical device
 > is used. The recording uses the deterministic stub provider; no physical Ring, Fire TV, or live
 > AWS resource is shown. Code and evidence: https://github.com/duynguyendang/aws-access-bell
@@ -139,7 +145,7 @@ unlisted-but-viewable, replace the `TODO(submission)` in `README.md` with the UR
 - [x] MCP server for Alexa+ (11 tools)
 - [x] Product feedback for every API/SDK/tool used
 - [x] Friction log
-- [x] Narrated 2:31 local cut with SRT captions (`docs/accessbell-demo.srt`)
+- [x] Narrated 2:47 local cut with SRT captions (`docs/accessbell-demo.srt`)
 - [ ] Upload the <3-minute public video and replace `TODO(submission)` in `README.md`
 - [ ] Select **Ring track** and **AWS Builder mini challenge** in the Devpost form
 - [ ] Paste the repository URL and video URL into the submission form

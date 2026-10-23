@@ -74,7 +74,9 @@ What to look at: the alert caption and its **Evidence / Why** line; the Gatekeep
 challenge on the police claim; the Ring simulator panel showing the signed v1.1 webhook result; the
 bilingual EN+VI caption line; the 10-foot PWA mode (one screen, large type, arrow-key focus, caption
 read aloud); the **Alexa+ MCP client (simulated)** panel running the same MCP tools as Alexa+
-(`initialize`, 11 tools, `get door alerts`, `send_quick_reply`); the grounding badge (`grounded` /
+(`initialize`, 11 tools, `get door alerts`, `send_quick_reply`); the **escalation countdown** to a
+trusted contact and its one-button **Stop**, which is written to the audit log before anything is
+sent; the grounding badge (`grounded` /
 `generic` / `demoted_insufficient_evidence`); the `/api/metrics` timers; and **Download door log** — a
 plain-text artifact of the day's events you can keep. The narrated cut is English-only; the bilingual
 EN+VI proof is the caption contract and UI strings. English narration captions are in
