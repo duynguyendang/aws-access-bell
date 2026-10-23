@@ -69,7 +69,7 @@ scripts/deploy_cloudrun.sh <project> [region]   # GCP Cloud Run deploy
 | New API route | `tests/test_api.py`, `docs/ARCHITECTURE.md` HTTP API table |
 | New table/column | both schema files, `docs/ARCHITECTURE.md` data model |
 | New/changed caption | `backend/captions.py` + `tests/test_captions.py` |
-| Test count changes | README, `docs/ARCHITECTURE.md` §14, `docs/SUBMISSION.md` (and `docs/internal/REFACTOR_PLAN.md` when it tracks the count) |
+| Test count changes | README, `docs/ARCHITECTURE.md` §14 (and `docs/internal/REFACTOR_PLAN.md` when it tracks the count) |
 | New doc | published → `docs/` (English) + README repo layout + Links table; internal → `docs/internal/` |
 | New deploy target | `docs/DEPLOYMENT.md` targets matrix |
 

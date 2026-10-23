@@ -51,7 +51,6 @@ scripts are all part of this submission.
 | **Run locally** | `pip install -r requirements-dev.txt && python -m backend` → http://localhost:8080 (offline demo mode: `MOCK_MODE` + `stub`) |
 | **Run on AWS** | `./scripts/deploy_aws.sh [region]` → ECS Fargate + RDS Postgres + Cognito + EventBridge; **Bedrock is the triage model in this path** |
 | **Live demo instance** | http://Access-Acces-v4CzPoNSYUTf-590730701.us-east-1.elb.amazonaws.com — ECS Fargate + ALB + RDS Postgres + Cognito + EventBridge in `us-east-1`; open demo (signed Ring simulator + Alexa+ client, 50 rpm per IP; the Ring webhook and `/mcp` stay token-protected). It may be scaled down after the demo window — the video points at `scripts/deploy_aws.sh` instead of this URL |
-| **Submission notes** | [docs/SUBMISSION.md](docs/SUBMISSION.md) · [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) · [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |
 
 ## Evaluate it in 3 minutes
 
@@ -153,7 +152,7 @@ Cognito OAuth and generated Secrets Manager values. The `stub` provider is the o
 | **Amazon EventBridge** | Optional outbound integration: every triaged event is published to a custom bus (`EVENTBRIDGE_BUS_NAME`; empty = off). CDK creates the bus + IAM. |
 | **Amazon Cognito** | OAuth 2.1 resource server for `/mcp` (two-tier: service vs user tokens) in the CDK stack, with two app clients because Cognito does not mix `client_credentials` and auth-code grant. |
 | **Amazon SNS / SES** | Escalation and announce transport (`NOTIFIER_PROVIDER=sns|ses|demo`). |
-| **AWS CDK (ECS Fargate + ALB + RDS Postgres)** | One-command deploy with generated Secrets Manager values for API/MCP/webhook tokens; optional ACM HTTPS for a Ring callback. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/AWS.md](docs/AWS.md). |
+| **AWS CDK (ECS Fargate + ALB + RDS Postgres)** | One-command deploy with generated Secrets Manager values for API/MCP/webhook tokens; optional ACM HTTPS for a Ring callback. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). |
 
 Local development defaults to the deterministic `stub` provider so tests and demos never depend on
 network or credentials; switch with `LLM_PROVIDER=bedrock` (see `.env.example`). Other providers
@@ -232,7 +231,7 @@ aws-access-bell/
 ├── mock/events/        # 7 fixture stories (Ring Partner API v1.1 envelopes)
 ├── prompts/triage.txt  # LLM prompt: TriageResult contract + guardrails
 ├── scripts/            # demo_story.py, eval_triage.py, measure_latency.py, verify_mcp.py, ablation_evidence.py, deploy_*
-├── docs/               # ARCHITECTURE, DEPLOYMENT, SIMULATION, ACCESSIBILITY, SUBMISSION, AWS, PRODUCT_FEEDBACK, FRICTION_LOG
+├── docs/               # ARCHITECTURE, DEPLOYMENT, SIMULATION, ACCESSIBILITY
 │   └── accessbell-demo.srt # English captions for the narrated demo cut
 └── tests/              # pytest: sqlite + postgres, triage, captions/a11y, MCP, API, escalation, ...
 ```
@@ -315,10 +314,6 @@ MIT — see [LICENSE](LICENSE).
 | Simulation guide (L0→L3) | [docs/SIMULATION.md](docs/SIMULATION.md) |
 | Accessibility statement | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) |
 | Demo video | Public upload pending <!-- TODO(submission): replace with the public YouTube/Vimeo URL --> |
-| Submission notes (track, window, checklist) | [docs/SUBMISSION.md](docs/SUBMISSION.md) |
-| Product feedback (every API/SDK used) | [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md) |
-| Friction log (hackathon bonus) | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md) |
-| AWS Builder notes | [docs/AWS.md](docs/AWS.md) |
 | MCP transport spec | https://modelcontextprotocol.io/specification/2025-11-25/basic/transports |
 | Alexa+ MCP toolkit | https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-overview.html |
 | Ring Partner API | https://developer.amazon.com/docs/ring/api-documentation.html |
